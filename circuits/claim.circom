@@ -104,4 +104,4 @@ template ClaimTransfer(N) {
     old_balance + total_xfer_amt === new_balance;
 }
 
-component main {public [claimer_addr]}  = ClaimTransfer(1);
+component main {public [claimer_addr, asset]}  = ClaimTransfer(1);
