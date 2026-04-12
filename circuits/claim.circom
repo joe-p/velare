@@ -16,6 +16,7 @@ template ClaimTransfer() {
     // Public inputs
     //////////////////////////////////////////////
     signal input claimer_addr;
+    signal input asset;
 
     //////////////////////////////////////////////
     // Private inputs
@@ -33,22 +34,25 @@ template ClaimTransfer() {
     //////////////////////////////////////////////
     // Commitments
     //////////////////////////////////////////////
-    component XH = MiMC_Sum(3);
+    component XH = MiMC_Sum(4);
     XH.msgs[0] <== claimer_addr;
-    XH.msgs[1] <== xfer_amt;
-    XH.msgs[2] <== xfer_secret;
+    XH.msgs[1] <== asset;
+    XH.msgs[2] <== xfer_amt;
+    XH.msgs[3] <== xfer_secret;
     xfer_commitment <== XH.out;
 
-    component OH = MiMC_Sum(3);
+    component OH = MiMC_Sum(4);
     OH.msgs[0] <== claimer_addr;
-    OH.msgs[1] <== old_balance;
-    OH.msgs[2] <== balance_secret;
+    OH.msgs[1] <== asset;
+    OH.msgs[2] <== old_balance;
+    OH.msgs[3] <== balance_secret;
     old_balance_commitment <== OH.out;
 
-    component NH = MiMC_Sum(3);
+    component NH = MiMC_Sum(4);
     NH.msgs[0] <== claimer_addr;
-    NH.msgs[1] <== new_balance;
-    NH.msgs[2] <== balance_secret;
+    NH.msgs[1] <== asset;
+    NH.msgs[2] <== new_balance;
+    NH.msgs[3] <== balance_secret;
     new_balance_commitment <== NH.out;
 
     //////////////////////////////////////////////
