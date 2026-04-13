@@ -23,7 +23,7 @@ import { TransactionComposer, AppCallMethodCall, AppMethodCallTransactionArgumen
 import { SendParams, SendSingleTransactionResult, SendAtomicTransactionComposerResults } from '@algorandfoundation/algokit-utils/types/transaction'
 import { Address, encodeAddress, modelsv2, OnApplicationComplete, Transaction, TransactionSigner } from 'algosdk'
 
-export const APP_SPEC: Arc56Contract = {"name":"Velare","structs":{"BalanceKey":[{"name":"asset","type":"uint64"},{"name":"addr","type":"address"}],"PlonkProof":[{"name":"a","type":"byte[96]"},{"name":"b","type":"byte[96]"},{"name":"c","type":"byte[96]"},{"name":"z","type":"byte[96]"},{"name":"t1","type":"byte[96]"},{"name":"t2","type":"byte[96]"},{"name":"t3","type":"byte[96]"},{"name":"wxi","type":"byte[96]"},{"name":"wxiw","type":"byte[96]"},{"name":"evalA","type":"uint256"},{"name":"evalB","type":"uint256"},{"name":"evalC","type":"uint256"},{"name":"evalS1","type":"uint256"},{"name":"evalS2","type":"uint256"},{"name":"evalZw","type":"uint256"}]},"methods":[{"name":"createApplication","args":[{"type":"address","name":"depositVerifier"}],"returns":{"type":"void"},"actions":{"create":["NoOp"],"call":[]},"readonly":false,"events":[],"recommendations":{}},{"name":"initializeAlgoBalance","args":[{"type":"uint256[]","name":"signals"},{"type":"(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256)","struct":"PlonkProof","name":"_proof"},{"type":"txn","name":"verifierTxn"},{"type":"pay","name":"depositTxn"}],"returns":{"type":"void"},"actions":{"create":[],"call":["NoOp"]},"readonly":false,"events":[],"recommendations":{}}],"arcs":[22,28],"networks":{},"state":{"schema":{"global":{"ints":0,"bytes":1},"local":{"ints":0,"bytes":0}},"keys":{"global":{"depositVerifier":{"keyType":"AVMString","valueType":"address","key":"ZA=="}},"local":{},"box":{}},"maps":{"global":{},"local":{},"box":{"balances":{"keyType":"BalanceKey","valueType":"uint256","prefix":"Yg=="}}}},"bareActions":{"create":[],"call":[]},"sourceInfo":{"approval":{"sourceInfo":[{"pc":[153,163],"errorMessage":"account funded"},{"pc":[206],"errorMessage":"address does not match sender"},{"pc":[121],"errorMessage":"balance already exists"},{"pc":[131],"errorMessage":"check GlobalState exists"},{"pc":[215],"errorMessage":"commitment amount does not match deposit amount (minus min balance)"},{"pc":[221],"errorMessage":"deposit must go to app address"},{"pc":[64],"errorMessage":"invalid array length header"},{"pc":[73],"errorMessage":"invalid number of bytes for arc4.dynamic_array<arc4.uint256>"},{"pc":[51],"errorMessage":"invalid number of bytes for arc4.static_array<arc4.uint8, 32>"},{"pc":[82],"errorMessage":"invalid number of bytes for contracts/Velare.algo.ts::PlonkProof"},{"pc":[133],"errorMessage":"invalid verification txn"},{"pc":[96],"errorMessage":"transaction type is pay"}],"pcOffsetMethod":"none"},"clear":{"sourceInfo":[],"pcOffsetMethod":"none"}},"source":{"approval":"I3ByYWdtYSB2ZXJzaW9uIDExCiNwcmFnbWEgdHlwZXRyYWNrIGZhbHNlCgovLyBAYWxnb3JhbmRmb3VuZGF0aW9uL2FsZ29yYW5kLXR5cGVzY3JpcHQvYXJjNC9pbmRleC5kLnRzOjpDb250cmFjdC5hcHByb3ZhbFByb2dyYW0oKSAtPiB1aW50NjQ6Cm1haW46CiAgICBpbnRjYmxvY2sgMSAwIDMyIDIKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo1NAogICAgLy8gZXhwb3J0IGNsYXNzIFZlbGFyZSBleHRlbmRzIENvbnRyYWN0IHsKICAgIHR4biBPbkNvbXBsZXRpb24KICAgICEKICAgIGFzc2VydAogICAgdHhuIEFwcGxpY2F0aW9uSUQKICAgIGJ6IG1haW5fY3JlYXRlX05vT3BANQogICAgcHVzaGJ5dGVzIDB4NjE3NzIwMTUgLy8gbWV0aG9kICJpbml0aWFsaXplQWxnb0JhbGFuY2UodWludDI1NltdLChieXRlWzk2XSxieXRlWzk2XSxieXRlWzk2XSxieXRlWzk2XSxieXRlWzk2XSxieXRlWzk2XSxieXRlWzk2XSxieXRlWzk2XSxieXRlWzk2XSx1aW50MjU2LHVpbnQyNTYsdWludDI1Nix1aW50MjU2LHVpbnQyNTYsdWludDI1NiksdHhuLHBheSl2b2lkIgogICAgdHhuYSBBcHBsaWNhdGlvbkFyZ3MgMAogICAgbWF0Y2ggaW5pdGlhbGl6ZUFsZ29CYWxhbmNlCiAgICBlcnIKCm1haW5fY3JlYXRlX05vT3BANToKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo1NAogICAgLy8gZXhwb3J0IGNsYXNzIFZlbGFyZSBleHRlbmRzIENvbnRyYWN0IHsKICAgIHB1c2hieXRlcyAweGQzMjRiZWE0IC8vIG1ldGhvZCAiY3JlYXRlQXBwbGljYXRpb24oYWRkcmVzcyl2b2lkIgogICAgdHhuYSBBcHBsaWNhdGlvbkFyZ3MgMAogICAgbWF0Y2ggY3JlYXRlQXBwbGljYXRpb24KICAgIGVycgoKCi8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo6VmVsYXJlLmNyZWF0ZUFwcGxpY2F0aW9uW3JvdXRpbmddKCkgLT4gdm9pZDoKY3JlYXRlQXBwbGljYXRpb246CiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NTkKICAgIC8vIGNyZWF0ZUFwcGxpY2F0aW9uKGRlcG9zaXRWZXJpZmllcjogQWNjb3VudCkgewogICAgdHhuYSBBcHBsaWNhdGlvbkFyZ3MgMQogICAgZHVwCiAgICBsZW4KICAgIGludGNfMiAvLyAzMgogICAgPT0KICAgIGFzc2VydCAvLyBpbnZhbGlkIG51bWJlciBvZiBieXRlcyBmb3IgYXJjNC5zdGF0aWNfYXJyYXk8YXJjNC51aW50OCwgMzI+CiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NTUKICAgIC8vIGRlcG9zaXRWZXJpZmllciA9IEdsb2JhbFN0YXRlPEFjY291bnQ+KHsga2V5OiAiZCIgfSk7CiAgICBwdXNoYnl0ZXMgImQiCiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NjAKICAgIC8vIHRoaXMuZGVwb3NpdFZlcmlmaWVyLnZhbHVlID0gZGVwb3NpdFZlcmlmaWVyOwogICAgc3dhcAogICAgYXBwX2dsb2JhbF9wdXQKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo1OQogICAgLy8gY3JlYXRlQXBwbGljYXRpb24oZGVwb3NpdFZlcmlmaWVyOiBBY2NvdW50KSB7CiAgICBpbnRjXzAgLy8gMQogICAgcmV0dXJuCgoKLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjpWZWxhcmUuaW5pdGlhbGl6ZUFsZ29CYWxhbmNlW3JvdXRpbmddKCkgLT4gdm9pZDoKaW5pdGlhbGl6ZUFsZ29CYWxhbmNlOgogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjYzLTY4CiAgICAvLyBpbml0aWFsaXplQWxnb0JhbGFuY2UoCiAgICAvLyAgIHNpZ25hbHM6IFVpbnQyNTZbXSwKICAgIC8vICAgX3Byb29mOiBQbG9ua1Byb29mLAogICAgLy8gICB2ZXJpZmllclR4bjogZ3R4bi5UcmFuc2FjdGlvbiwKICAgIC8vICAgZGVwb3NpdFR4bjogZ3R4bi5QYXltZW50VHhuLAogICAgLy8gKSB7CiAgICB0eG5hIEFwcGxpY2F0aW9uQXJncyAxCiAgICBkdXAKICAgIGludGNfMSAvLyAwCiAgICBleHRyYWN0X3VpbnQxNiAvLyBvbiBlcnJvcjogaW52YWxpZCBhcnJheSBsZW5ndGggaGVhZGVyCiAgICBpbnRjXzIgLy8gMzIKICAgICoKICAgIGludGNfMyAvLyAyCiAgICArCiAgICBkaWcgMQogICAgbGVuCiAgICA9PQogICAgYXNzZXJ0IC8vIGludmFsaWQgbnVtYmVyIG9mIGJ5dGVzIGZvciBhcmM0LmR5bmFtaWNfYXJyYXk8YXJjNC51aW50MjU2PgogICAgdHhuYSBBcHBsaWNhdGlvbkFyZ3MgMgogICAgbGVuCiAgICBwdXNoaW50IDEwNTYKICAgID09CiAgICBhc3NlcnQgLy8gaW52YWxpZCBudW1iZXIgb2YgYnl0ZXMgZm9yIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo6UGxvbmtQcm9vZgogICAgdHhuIEdyb3VwSW5kZXgKICAgIGludGNfMyAvLyAyCiAgICAtCiAgICB0eG4gR3JvdXBJbmRleAogICAgaW50Y18wIC8vIDEKICAgIC0KICAgIGR1cAogICAgZ3R4bnMgVHlwZUVudW0KICAgIGludGNfMCAvLyBwYXkKICAgID09CiAgICBhc3NlcnQgLy8gdHJhbnNhY3Rpb24gdHlwZSBpcyBwYXkKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo2OQogICAgLy8gY29uc3QgYmFsYW5jZUtleSA9IHsgYWRkcjogVHhuLnNlbmRlciwgYXNzZXQ6IFVpbnQ2NCgwKSB9OwogICAgdHhuIFNlbmRlcgogICAgaW50Y18xIC8vIDAKICAgIGl0b2IKICAgIGNvbmNhdAogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjcxCiAgICAvLyBhc3NlcnQoIXRoaXMuYmFsYW5jZXMoYmFsYW5jZUtleSkuZXhpc3RzLCAiYmFsYW5jZSBhbHJlYWR5IGV4aXN0cyIpOwogICAgZHVwCiAgICBleHRyYWN0IDMyIDgKICAgIHN3YXAKICAgIGV4dHJhY3QgMCAzMgogICAgY29uY2F0CiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NTcKICAgIC8vIGJhbGFuY2VzID0gQm94TWFwPEJhbGFuY2VLZXksIFVpbnQyNTY+KHsga2V5UHJlZml4OiAiYiIgfSk7CiAgICBwdXNoYnl0ZXMgImIiCiAgICBzd2FwCiAgICBjb25jYXQKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo3MQogICAgLy8gYXNzZXJ0KCF0aGlzLmJhbGFuY2VzKGJhbGFuY2VLZXkpLmV4aXN0cywgImJhbGFuY2UgYWxyZWFkeSBleGlzdHMiKTsKICAgIGR1cAogICAgYm94X2xlbgogICAgYnVyeSAxCiAgICAhCiAgICBhc3NlcnQgLy8gYmFsYW5jZSBhbHJlYWR5IGV4aXN0cwogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjczCiAgICAvLyB2ZXJpZmllclR4bi5zZW5kZXIgPT09IHRoaXMuZGVwb3NpdFZlcmlmaWVyLnZhbHVlLAogICAgdW5jb3ZlciAyCiAgICBndHhucyBTZW5kZXIKICAgIGludGNfMSAvLyAwCiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NTUKICAgIC8vIGRlcG9zaXRWZXJpZmllciA9IEdsb2JhbFN0YXRlPEFjY291bnQ+KHsga2V5OiAiZCIgfSk7CiAgICBwdXNoYnl0ZXMgImQiCiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NzMKICAgIC8vIHZlcmlmaWVyVHhuLnNlbmRlciA9PT0gdGhpcy5kZXBvc2l0VmVyaWZpZXIudmFsdWUsCiAgICBhcHBfZ2xvYmFsX2dldF9leAogICAgYXNzZXJ0IC8vIGNoZWNrIEdsb2JhbFN0YXRlIGV4aXN0cwogICAgPT0KICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo3Mi03NQogICAgLy8gYXNzZXJ0KAogICAgLy8gICB2ZXJpZmllclR4bi5zZW5kZXIgPT09IHRoaXMuZGVwb3NpdFZlcmlmaWVyLnZhbHVlLAogICAgLy8gICAiaW52YWxpZCB2ZXJpZmljYXRpb24gdHhuIiwKICAgIC8vICk7CiAgICBhc3NlcnQgLy8gaW52YWxpZCB2ZXJpZmljYXRpb24gdHhuCiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NzcKICAgIC8vIGNvbnN0IFtjb21taXRtZW50LCBhZGRyLCBhc3NldCwgYW1vdW50XSA9IHNpZ25hbHM7CiAgICBkaWcgMgogICAgZXh0cmFjdCAyIDMyCiAgICBkaWcgMwogICAgZXh0cmFjdCAzNCAzMgogICAgdW5jb3ZlciA0CiAgICBleHRyYWN0IDk4IDMyCiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NzkKICAgIC8vIGNvbnN0IHByZU1iciA9IEdsb2JhbC5jdXJyZW50QXBwbGljYXRpb25BZGRyZXNzLm1pbkJhbGFuY2U7CiAgICBnbG9iYWwgQ3VycmVudEFwcGxpY2F0aW9uQWRkcmVzcwogICAgYWNjdF9wYXJhbXNfZ2V0IEFjY3RNaW5CYWxhbmNlCiAgICBhc3NlcnQgLy8gYWNjb3VudCBmdW5kZWQKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo4MAogICAgLy8gdGhpcy5iYWxhbmNlcyhiYWxhbmNlS2V5KS52YWx1ZSA9IGNvbW1pdG1lbnQ7CiAgICB1bmNvdmVyIDQKICAgIHVuY292ZXIgNAogICAgYm94X3B1dAogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjgyCiAgICAvLyBHbG9iYWwuY3VycmVudEFwcGxpY2F0aW9uQWRkcmVzcy5taW5CYWxhbmNlIC0gcHJlTWJyOwogICAgZ2xvYmFsIEN1cnJlbnRBcHBsaWNhdGlvbkFkZHJlc3MKICAgIGFjY3RfcGFyYW1zX2dldCBBY2N0TWluQmFsYW5jZQogICAgYXNzZXJ0IC8vIGFjY291bnQgZnVuZGVkCiAgICBzd2FwCiAgICAtCiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6ODUKICAgIC8vIEJpZ1VpbnQoVHhuLnNlbmRlci5ieXRlcykgJSBCTFMxMl8zODFfU0NBTEFSX01PRFVMVVMgPT09IGFkZHIuYXNCaWdVaW50KCksCiAgICB0eG4gU2VuZGVyCiAgICBwdXNoYnl0ZXMgMHg3M2VkYTc1MzI5OWQ3ZDQ4MzMzOWQ4MDgwOWExZDgwNTUzYmRhNDAyZmZmZTViZmVmZmZmZmZmZjAwMDAwMDAxCiAgICBiJQogICAgdW5jb3ZlciAzCiAgICBiPT0KICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo4NC04NwogICAgLy8gYXNzZXJ0KAogICAgLy8gICBCaWdVaW50KFR4bi5zZW5kZXIuYnl0ZXMpICUgQkxTMTJfMzgxX1NDQUxBUl9NT0RVTFVTID09PSBhZGRyLmFzQmlnVWludCgpLAogICAgLy8gICAiYWRkcmVzcyBkb2VzIG5vdCBtYXRjaCBzZW5kZXIiLAogICAgLy8gKTsKICAgIGFzc2VydCAvLyBhZGRyZXNzIGRvZXMgbm90IG1hdGNoIHNlbmRlcgogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjkwCiAgICAvLyBhbW91bnQuYXNCaWdVaW50KCkgPT09IEJpZ1VpbnQoZGVwb3NpdFR4bi5hbW91bnQgLSBiYWxhbmNlTWJyKSwKICAgIGRpZyAyCiAgICBndHhucyBBbW91bnQKICAgIHN3YXAKICAgIC0KICAgIGl0b2IKICAgIGI9PQogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjg5LTkyCiAgICAvLyBhc3NlcnQoCiAgICAvLyAgIGFtb3VudC5hc0JpZ1VpbnQoKSA9PT0gQmlnVWludChkZXBvc2l0VHhuLmFtb3VudCAtIGJhbGFuY2VNYnIpLAogICAgLy8gICAiY29tbWl0bWVudCBhbW91bnQgZG9lcyBub3QgbWF0Y2ggZGVwb3NpdCBhbW91bnQgKG1pbnVzIG1pbiBiYWxhbmNlKSIsCiAgICAvLyApOwogICAgYXNzZXJ0IC8vIGNvbW1pdG1lbnQgYW1vdW50IGRvZXMgbm90IG1hdGNoIGRlcG9zaXQgYW1vdW50IChtaW51cyBtaW4gYmFsYW5jZSkKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo5NQogICAgLy8gZGVwb3NpdFR4bi5yZWNlaXZlciA9PT0gR2xvYmFsLmN1cnJlbnRBcHBsaWNhdGlvbkFkZHJlc3MsCiAgICBndHhucyBSZWNlaXZlcgogICAgZ2xvYmFsIEN1cnJlbnRBcHBsaWNhdGlvbkFkZHJlc3MKICAgID09CiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6OTQtOTcKICAgIC8vIGFzc2VydCgKICAgIC8vICAgZGVwb3NpdFR4bi5yZWNlaXZlciA9PT0gR2xvYmFsLmN1cnJlbnRBcHBsaWNhdGlvbkFkZHJlc3MsCiAgICAvLyAgICJkZXBvc2l0IG11c3QgZ28gdG8gYXBwIGFkZHJlc3MiLAogICAgLy8gKTsKICAgIGFzc2VydCAvLyBkZXBvc2l0IG11c3QgZ28gdG8gYXBwIGFkZHJlc3MKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo2My02OAogICAgLy8gaW5pdGlhbGl6ZUFsZ29CYWxhbmNlKAogICAgLy8gICBzaWduYWxzOiBVaW50MjU2W10sCiAgICAvLyAgIF9wcm9vZjogUGxvbmtQcm9vZiwKICAgIC8vICAgdmVyaWZpZXJUeG46IGd0eG4uVHJhbnNhY3Rpb24sCiAgICAvLyAgIGRlcG9zaXRUeG46IGd0eG4uUGF5bWVudFR4biwKICAgIC8vICkgewogICAgaW50Y18wIC8vIDEKICAgIHJldHVybgo=","clear":"I3ByYWdtYSB2ZXJzaW9uIDExCiNwcmFnbWEgdHlwZXRyYWNrIGZhbHNlCgovLyBAYWxnb3JhbmRmb3VuZGF0aW9uL2FsZ29yYW5kLXR5cGVzY3JpcHQvYmFzZS1jb250cmFjdC5kLnRzOjpCYXNlQ29udHJhY3QuY2xlYXJTdGF0ZVByb2dyYW0oKSAtPiB1aW50NjQ6Cm1haW46CiAgICBwdXNoaW50IDEKICAgIHJldHVybgo="},"byteCode":{"approval":"CyAEAQAgAjEZFEQxGEEADoAEYXcgFTYaAI4BAB4AgATTJL6kNhoAjgEAAQA2GgFJFSQSRIABZExnIkM2GgFJI1kkCyUISwEVEkQ2GgIVgaAIEkQxFiUJMRYiCUk4ECISRDEAIxZQSVcgCExXACBQgAFiTFBJvUUBFERPAjgAI4ABZGVEEkRLAlcCIEsDVyIgTwRXYiAyCnMBRE8ETwS/MgpzAURMCTEAgCBz7adTKZ19SDM52AgJodgFU72kAv/+W/7/////AAAAAapPA6hESwI4CEwJFqhEOAcyChJEIkM=","clear":"C4EBQw=="},"events":[],"templateVariables":{}} as unknown as Arc56Contract
+export const APP_SPEC: Arc56Contract = {"name":"Velare","structs":{"BalanceKey":[{"name":"asset","type":"uint64"},{"name":"addr","type":"address"}],"PlonkProof":[{"name":"a","type":"byte[96]"},{"name":"b","type":"byte[96]"},{"name":"c","type":"byte[96]"},{"name":"z","type":"byte[96]"},{"name":"t1","type":"byte[96]"},{"name":"t2","type":"byte[96]"},{"name":"t3","type":"byte[96]"},{"name":"wxi","type":"byte[96]"},{"name":"wxiw","type":"byte[96]"},{"name":"evalA","type":"uint256"},{"name":"evalB","type":"uint256"},{"name":"evalC","type":"uint256"},{"name":"evalS1","type":"uint256"},{"name":"evalS2","type":"uint256"},{"name":"evalZw","type":"uint256"}]},"methods":[{"name":"createApplication","args":[{"type":"address","name":"depositVerifier"},{"type":"address","name":"transferVerifier"}],"returns":{"type":"void"},"actions":{"create":["NoOp"],"call":[]},"readonly":false,"events":[],"recommendations":{}},{"name":"initializeAlgoBalance","args":[{"type":"uint256[]","name":"signals"},{"type":"(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256)","struct":"PlonkProof","name":"_proof"},{"type":"txn","name":"verifierTxn"},{"type":"pay","name":"depositTxn"}],"returns":{"type":"void"},"actions":{"create":[],"call":["NoOp"]},"readonly":false,"events":[],"recommendations":{}},{"name":"transfer","args":[{"type":"uint256[]","name":"signals"},{"type":"(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256)","struct":"PlonkProof","name":"_proof"},{"type":"txn","name":"verifierTxn"},{"type":"address","name":"receiver"}],"returns":{"type":"void"},"actions":{"create":[],"call":["NoOp"]},"readonly":false,"events":[],"recommendations":{}}],"arcs":[22,28],"networks":{},"state":{"schema":{"global":{"ints":0,"bytes":2},"local":{"ints":0,"bytes":0}},"keys":{"global":{"depositVerifier":{"keyType":"AVMString","valueType":"address","key":"ZA=="},"transferVerifier":{"keyType":"AVMString","valueType":"address","key":"dA=="}},"local":{},"box":{}},"maps":{"global":{},"local":{},"box":{"balances":{"keyType":"BalanceKey","valueType":"uint256","prefix":"Yg=="},"pendingTransfers":{"keyType":"BalanceKey","valueType":"uint256[]","prefix":"cA=="}}}},"bareActions":{"create":[],"call":[]},"sourceInfo":{"approval":{"sourceInfo":[{"pc":[382],"errorMessage":"Box must have value"},{"pc":[218,228],"errorMessage":"account funded"},{"pc":[238],"errorMessage":"address does not match sender"},{"pc":[213],"errorMessage":"asset must be ALGO"},{"pc":[178],"errorMessage":"balance already exists"},{"pc":[186,298],"errorMessage":"check GlobalState exists"},{"pc":[247],"errorMessage":"commitment amount does not match deposit amount (minus min balance)"},{"pc":[253],"errorMessage":"deposit must go to app address"},{"pc":[123,261],"errorMessage":"invalid array length header"},{"pc":[132,270],"errorMessage":"invalid number of bytes for arc4.dynamic_array<arc4.uint256>"},{"pc":[100,108,291],"errorMessage":"invalid number of bytes for arc4.static_array<arc4.uint8, 32>"},{"pc":[141,279],"errorMessage":"invalid number of bytes for contracts/Velare.algo.ts::PlonkProof"},{"pc":[188],"errorMessage":"invalid verification txn"},{"pc":[300],"errorMessage":"invalid verifier txn"},{"pc":[386],"errorMessage":"old balance does not match"},{"pc":[338],"errorMessage":"overflow"},{"pc":[367],"errorMessage":"receiver does not match circuit sender"},{"pc":[359],"errorMessage":"sender does not match circuit sender"},{"pc":[155],"errorMessage":"transaction type is pay"}],"pcOffsetMethod":"none"},"clear":{"sourceInfo":[],"pcOffsetMethod":"none"}},"source":{"approval":"I3ByYWdtYSB2ZXJzaW9uIDExCiNwcmFnbWEgdHlwZXRyYWNrIGZhbHNlCgovLyBAYWxnb3JhbmRmb3VuZGF0aW9uL2FsZ29yYW5kLXR5cGVzY3JpcHQvYXJjNC9pbmRleC5kLnRzOjpDb250cmFjdC5hcHByb3ZhbFByb2dyYW0oKSAtPiB1aW50NjQ6Cm1haW46CiAgICBpbnRjYmxvY2sgMCAzMiAxIDIKICAgIGJ5dGVjYmxvY2sgMHg3M2VkYTc1MzI5OWQ3ZDQ4MzMzOWQ4MDgwOWExZDgwNTUzYmRhNDAyZmZmZTViZmVmZmZmZmZmZjAwMDAwMDAxICJkIiAidCIgImIiCiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NTQKICAgIC8vIGV4cG9ydCBjbGFzcyBWZWxhcmUgZXh0ZW5kcyBDb250cmFjdCB7CiAgICB0eG4gT25Db21wbGV0aW9uCiAgICAhCiAgICBhc3NlcnQKICAgIHR4biBBcHBsaWNhdGlvbklECiAgICBieiBtYWluX2NyZWF0ZV9Ob09wQDYKICAgIHB1c2hieXRlc3MgMHg2MTc3MjAxNSAweDQxODNmZjlmIC8vIG1ldGhvZCAiaW5pdGlhbGl6ZUFsZ29CYWxhbmNlKHVpbnQyNTZbXSwoYnl0ZVs5Nl0sYnl0ZVs5Nl0sYnl0ZVs5Nl0sYnl0ZVs5Nl0sYnl0ZVs5Nl0sYnl0ZVs5Nl0sYnl0ZVs5Nl0sYnl0ZVs5Nl0sYnl0ZVs5Nl0sdWludDI1Nix1aW50MjU2LHVpbnQyNTYsdWludDI1Nix1aW50MjU2LHVpbnQyNTYpLHR4bixwYXkpdm9pZCIsIG1ldGhvZCAidHJhbnNmZXIodWludDI1NltdLChieXRlWzk2XSxieXRlWzk2XSxieXRlWzk2XSxieXRlWzk2XSxieXRlWzk2XSxieXRlWzk2XSxieXRlWzk2XSxieXRlWzk2XSxieXRlWzk2XSx1aW50MjU2LHVpbnQyNTYsdWludDI1Nix1aW50MjU2LHVpbnQyNTYsdWludDI1NiksdHhuLGFkZHJlc3Mpdm9pZCIKICAgIHR4bmEgQXBwbGljYXRpb25BcmdzIDAKICAgIG1hdGNoIGluaXRpYWxpemVBbGdvQmFsYW5jZSB0cmFuc2ZlcgogICAgZXJyCgptYWluX2NyZWF0ZV9Ob09wQDY6CiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NTQKICAgIC8vIGV4cG9ydCBjbGFzcyBWZWxhcmUgZXh0ZW5kcyBDb250cmFjdCB7CiAgICBwdXNoYnl0ZXMgMHhiNGM3N2Q3MSAvLyBtZXRob2QgImNyZWF0ZUFwcGxpY2F0aW9uKGFkZHJlc3MsYWRkcmVzcyl2b2lkIgogICAgdHhuYSBBcHBsaWNhdGlvbkFyZ3MgMAogICAgbWF0Y2ggY3JlYXRlQXBwbGljYXRpb24KICAgIGVycgoKCi8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo6VmVsYXJlLmNyZWF0ZUFwcGxpY2F0aW9uW3JvdXRpbmddKCkgLT4gdm9pZDoKY3JlYXRlQXBwbGljYXRpb246CiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NjQKICAgIC8vIGNyZWF0ZUFwcGxpY2F0aW9uKGRlcG9zaXRWZXJpZmllcjogQWNjb3VudCwgdHJhbnNmZXJWZXJpZmllcjogQWNjb3VudCkgewogICAgdHhuYSBBcHBsaWNhdGlvbkFyZ3MgMQogICAgZHVwCiAgICBsZW4KICAgIGludGNfMSAvLyAzMgogICAgPT0KICAgIGFzc2VydCAvLyBpbnZhbGlkIG51bWJlciBvZiBieXRlcyBmb3IgYXJjNC5zdGF0aWNfYXJyYXk8YXJjNC51aW50OCwgMzI+CiAgICB0eG5hIEFwcGxpY2F0aW9uQXJncyAyCiAgICBkdXAKICAgIGxlbgogICAgaW50Y18xIC8vIDMyCiAgICA9PQogICAgYXNzZXJ0IC8vIGludmFsaWQgbnVtYmVyIG9mIGJ5dGVzIGZvciBhcmM0LnN0YXRpY19hcnJheTxhcmM0LnVpbnQ4LCAzMj4KICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo1NQogICAgLy8gZGVwb3NpdFZlcmlmaWVyID0gR2xvYmFsU3RhdGU8QWNjb3VudD4oeyBrZXk6ICJkIiB9KTsKICAgIGJ5dGVjXzEgLy8gImQiCiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NjUKICAgIC8vIHRoaXMuZGVwb3NpdFZlcmlmaWVyLnZhbHVlID0gZGVwb3NpdFZlcmlmaWVyOwogICAgdW5jb3ZlciAyCiAgICBhcHBfZ2xvYmFsX3B1dAogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjU3CiAgICAvLyB0cmFuc2ZlclZlcmlmaWVyID0gR2xvYmFsU3RhdGU8QWNjb3VudD4oeyBrZXk6ICJ0IiB9KTsKICAgIGJ5dGVjXzIgLy8gInQiCiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NjYKICAgIC8vIHRoaXMudHJhbnNmZXJWZXJpZmllci52YWx1ZSA9IHRyYW5zZmVyVmVyaWZpZXI7CiAgICBzd2FwCiAgICBhcHBfZ2xvYmFsX3B1dAogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjY0CiAgICAvLyBjcmVhdGVBcHBsaWNhdGlvbihkZXBvc2l0VmVyaWZpZXI6IEFjY291bnQsIHRyYW5zZmVyVmVyaWZpZXI6IEFjY291bnQpIHsKICAgIGludGNfMiAvLyAxCiAgICByZXR1cm4KCgovLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6OlZlbGFyZS5pbml0aWFsaXplQWxnb0JhbGFuY2Vbcm91dGluZ10oKSAtPiB2b2lkOgppbml0aWFsaXplQWxnb0JhbGFuY2U6CiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NjktNzQKICAgIC8vIGluaXRpYWxpemVBbGdvQmFsYW5jZSgKICAgIC8vICAgc2lnbmFsczogVWludDI1NltdLAogICAgLy8gICBfcHJvb2Y6IFBsb25rUHJvb2YsCiAgICAvLyAgIHZlcmlmaWVyVHhuOiBndHhuLlRyYW5zYWN0aW9uLAogICAgLy8gICBkZXBvc2l0VHhuOiBndHhuLlBheW1lbnRUeG4sCiAgICAvLyApIHsKICAgIHR4bmEgQXBwbGljYXRpb25BcmdzIDEKICAgIGR1cAogICAgaW50Y18wIC8vIDAKICAgIGV4dHJhY3RfdWludDE2IC8vIG9uIGVycm9yOiBpbnZhbGlkIGFycmF5IGxlbmd0aCBoZWFkZXIKICAgIGludGNfMSAvLyAzMgogICAgKgogICAgaW50Y18zIC8vIDIKICAgICsKICAgIGRpZyAxCiAgICBsZW4KICAgID09CiAgICBhc3NlcnQgLy8gaW52YWxpZCBudW1iZXIgb2YgYnl0ZXMgZm9yIGFyYzQuZHluYW1pY19hcnJheTxhcmM0LnVpbnQyNTY+CiAgICB0eG5hIEFwcGxpY2F0aW9uQXJncyAyCiAgICBsZW4KICAgIHB1c2hpbnQgMTA1NgogICAgPT0KICAgIGFzc2VydCAvLyBpbnZhbGlkIG51bWJlciBvZiBieXRlcyBmb3IgY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjpQbG9ua1Byb29mCiAgICB0eG4gR3JvdXBJbmRleAogICAgaW50Y18zIC8vIDIKICAgIC0KICAgIHR4biBHcm91cEluZGV4CiAgICBpbnRjXzIgLy8gMQogICAgLQogICAgZHVwCiAgICBndHhucyBUeXBlRW51bQogICAgaW50Y18yIC8vIHBheQogICAgPT0KICAgIGFzc2VydCAvLyB0cmFuc2FjdGlvbiB0eXBlIGlzIHBheQogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjc1CiAgICAvLyBjb25zdCBiYWxhbmNlS2V5ID0geyBhZGRyOiBUeG4uc2VuZGVyLCBhc3NldDogVWludDY0KDApIH07CiAgICB0eG4gU2VuZGVyCiAgICBpbnRjXzAgLy8gMAogICAgaXRvYgogICAgY29uY2F0CiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NzcKICAgIC8vIGFzc2VydCghdGhpcy5iYWxhbmNlcyhiYWxhbmNlS2V5KS5leGlzdHMsICJiYWxhbmNlIGFscmVhZHkgZXhpc3RzIik7CiAgICBkdXAKICAgIGV4dHJhY3QgMzIgOAogICAgc3dhcAogICAgZXh0cmFjdCAwIDMyCiAgICBjb25jYXQKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo1OQogICAgLy8gYmFsYW5jZXMgPSBCb3hNYXA8QmFsYW5jZUtleSwgVWludDI1Nj4oeyBrZXlQcmVmaXg6ICJiIiB9KTsKICAgIGJ5dGVjXzMgLy8gImIiCiAgICBzd2FwCiAgICBjb25jYXQKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo3NwogICAgLy8gYXNzZXJ0KCF0aGlzLmJhbGFuY2VzKGJhbGFuY2VLZXkpLmV4aXN0cywgImJhbGFuY2UgYWxyZWFkeSBleGlzdHMiKTsKICAgIGR1cAogICAgYm94X2xlbgogICAgYnVyeSAxCiAgICAhCiAgICBhc3NlcnQgLy8gYmFsYW5jZSBhbHJlYWR5IGV4aXN0cwogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjc5CiAgICAvLyB2ZXJpZmllclR4bi5zZW5kZXIgPT09IHRoaXMuZGVwb3NpdFZlcmlmaWVyLnZhbHVlLAogICAgdW5jb3ZlciAyCiAgICBndHhucyBTZW5kZXIKICAgIGludGNfMCAvLyAwCiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NTUKICAgIC8vIGRlcG9zaXRWZXJpZmllciA9IEdsb2JhbFN0YXRlPEFjY291bnQ+KHsga2V5OiAiZCIgfSk7CiAgICBieXRlY18xIC8vICJkIgogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjc5CiAgICAvLyB2ZXJpZmllclR4bi5zZW5kZXIgPT09IHRoaXMuZGVwb3NpdFZlcmlmaWVyLnZhbHVlLAogICAgYXBwX2dsb2JhbF9nZXRfZXgKICAgIGFzc2VydCAvLyBjaGVjayBHbG9iYWxTdGF0ZSBleGlzdHMKICAgID09CiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NzgtODEKICAgIC8vIGFzc2VydCgKICAgIC8vICAgdmVyaWZpZXJUeG4uc2VuZGVyID09PSB0aGlzLmRlcG9zaXRWZXJpZmllci52YWx1ZSwKICAgIC8vICAgImludmFsaWQgdmVyaWZpY2F0aW9uIHR4biIsCiAgICAvLyApOwogICAgYXNzZXJ0IC8vIGludmFsaWQgdmVyaWZpY2F0aW9uIHR4bgogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjgzCiAgICAvLyBjb25zdCBbY29tbWl0bWVudCwgYWRkciwgYXNzZXQsIGFtb3VudF0gPSBzaWduYWxzOwogICAgZGlnIDIKICAgIGV4dHJhY3QgMiAzMgogICAgZGlnIDMKICAgIGV4dHJhY3QgMzQgMzIKICAgIGRpZyA0CiAgICBleHRyYWN0IDY2IDMyCiAgICB1bmNvdmVyIDUKICAgIGV4dHJhY3QgOTggMzIKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo4NQogICAgLy8gYXNzZXJ0KGFzc2V0LmFzQmlnVWludCgpID09PSBCaWdVaW50KDApLCAiYXNzZXQgbXVzdCBiZSBBTEdPIik7CiAgICBzd2FwCiAgICBwdXNoYnl0ZXMgMHgKICAgIGI9PQogICAgYXNzZXJ0IC8vIGFzc2V0IG11c3QgYmUgQUxHTwogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjg3CiAgICAvLyBjb25zdCBwcmVNYnIgPSBHbG9iYWwuY3VycmVudEFwcGxpY2F0aW9uQWRkcmVzcy5taW5CYWxhbmNlOwogICAgZ2xvYmFsIEN1cnJlbnRBcHBsaWNhdGlvbkFkZHJlc3MKICAgIGFjY3RfcGFyYW1zX2dldCBBY2N0TWluQmFsYW5jZQogICAgYXNzZXJ0IC8vIGFjY291bnQgZnVuZGVkCiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6ODgKICAgIC8vIHRoaXMuYmFsYW5jZXMoYmFsYW5jZUtleSkudmFsdWUgPSBjb21taXRtZW50OwogICAgdW5jb3ZlciA0CiAgICB1bmNvdmVyIDQKICAgIGJveF9wdXQKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo5MAogICAgLy8gR2xvYmFsLmN1cnJlbnRBcHBsaWNhdGlvbkFkZHJlc3MubWluQmFsYW5jZSAtIHByZU1icjsKICAgIGdsb2JhbCBDdXJyZW50QXBwbGljYXRpb25BZGRyZXNzCiAgICBhY2N0X3BhcmFtc19nZXQgQWNjdE1pbkJhbGFuY2UKICAgIGFzc2VydCAvLyBhY2NvdW50IGZ1bmRlZAogICAgc3dhcAogICAgLQogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjkzCiAgICAvLyBCaWdVaW50KFR4bi5zZW5kZXIuYnl0ZXMpICUgQkxTMTJfMzgxX1NDQUxBUl9NT0RVTFVTID09PSBhZGRyLmFzQmlnVWludCgpLAogICAgdHhuIFNlbmRlcgogICAgYnl0ZWNfMCAvLyAweDczZWRhNzUzMjk5ZDdkNDgzMzM5ZDgwODA5YTFkODA1NTNiZGE0MDJmZmZlNWJmZWZmZmZmZmZmMDAwMDAwMDEKICAgIGIlCiAgICB1bmNvdmVyIDMKICAgIGI9PQogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjkyLTk1CiAgICAvLyBhc3NlcnQoCiAgICAvLyAgIEJpZ1VpbnQoVHhuLnNlbmRlci5ieXRlcykgJSBCTFMxMl8zODFfU0NBTEFSX01PRFVMVVMgPT09IGFkZHIuYXNCaWdVaW50KCksCiAgICAvLyAgICJhZGRyZXNzIGRvZXMgbm90IG1hdGNoIHNlbmRlciIsCiAgICAvLyApOwogICAgYXNzZXJ0IC8vIGFkZHJlc3MgZG9lcyBub3QgbWF0Y2ggc2VuZGVyCiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6OTgKICAgIC8vIGFtb3VudC5hc0JpZ1VpbnQoKSA9PT0gQmlnVWludChkZXBvc2l0VHhuLmFtb3VudCAtIGJhbGFuY2VNYnIpLAogICAgZGlnIDIKICAgIGd0eG5zIEFtb3VudAogICAgc3dhcAogICAgLQogICAgaXRvYgogICAgYj09CiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6OTctMTAwCiAgICAvLyBhc3NlcnQoCiAgICAvLyAgIGFtb3VudC5hc0JpZ1VpbnQoKSA9PT0gQmlnVWludChkZXBvc2l0VHhuLmFtb3VudCAtIGJhbGFuY2VNYnIpLAogICAgLy8gICAiY29tbWl0bWVudCBhbW91bnQgZG9lcyBub3QgbWF0Y2ggZGVwb3NpdCBhbW91bnQgKG1pbnVzIG1pbiBiYWxhbmNlKSIsCiAgICAvLyApOwogICAgYXNzZXJ0IC8vIGNvbW1pdG1lbnQgYW1vdW50IGRvZXMgbm90IG1hdGNoIGRlcG9zaXQgYW1vdW50IChtaW51cyBtaW4gYmFsYW5jZSkKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czoxMDMKICAgIC8vIGRlcG9zaXRUeG4ucmVjZWl2ZXIgPT09IEdsb2JhbC5jdXJyZW50QXBwbGljYXRpb25BZGRyZXNzLAogICAgZ3R4bnMgUmVjZWl2ZXIKICAgIGdsb2JhbCBDdXJyZW50QXBwbGljYXRpb25BZGRyZXNzCiAgICA9PQogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjEwMi0xMDUKICAgIC8vIGFzc2VydCgKICAgIC8vICAgZGVwb3NpdFR4bi5yZWNlaXZlciA9PT0gR2xvYmFsLmN1cnJlbnRBcHBsaWNhdGlvbkFkZHJlc3MsCiAgICAvLyAgICJkZXBvc2l0IG11c3QgZ28gdG8gYXBwIGFkZHJlc3MiLAogICAgLy8gKTsKICAgIGFzc2VydCAvLyBkZXBvc2l0IG11c3QgZ28gdG8gYXBwIGFkZHJlc3MKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo2OS03NAogICAgLy8gaW5pdGlhbGl6ZUFsZ29CYWxhbmNlKAogICAgLy8gICBzaWduYWxzOiBVaW50MjU2W10sCiAgICAvLyAgIF9wcm9vZjogUGxvbmtQcm9vZiwKICAgIC8vICAgdmVyaWZpZXJUeG46IGd0eG4uVHJhbnNhY3Rpb24sCiAgICAvLyAgIGRlcG9zaXRUeG46IGd0eG4uUGF5bWVudFR4biwKICAgIC8vICkgewogICAgaW50Y18yIC8vIDEKICAgIHJldHVybgoKCi8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czo6VmVsYXJlLnRyYW5zZmVyW3JvdXRpbmddKCkgLT4gdm9pZDoKdHJhbnNmZXI6CiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6MTA4LTExMwogICAgLy8gdHJhbnNmZXIoCiAgICAvLyAgIHNpZ25hbHM6IFVpbnQyNTZbXSwKICAgIC8vICAgX3Byb29mOiBQbG9ua1Byb29mLAogICAgLy8gICB2ZXJpZmllclR4bjogZ3R4bi5UcmFuc2FjdGlvbiwKICAgIC8vICAgcmVjZWl2ZXI6IEFjY291bnQsCiAgICAvLyApIHsKICAgIHR4bmEgQXBwbGljYXRpb25BcmdzIDEKICAgIGR1cAogICAgaW50Y18wIC8vIDAKICAgIGV4dHJhY3RfdWludDE2IC8vIG9uIGVycm9yOiBpbnZhbGlkIGFycmF5IGxlbmd0aCBoZWFkZXIKICAgIGludGNfMSAvLyAzMgogICAgKgogICAgaW50Y18zIC8vIDIKICAgICsKICAgIGRpZyAxCiAgICBsZW4KICAgID09CiAgICBhc3NlcnQgLy8gaW52YWxpZCBudW1iZXIgb2YgYnl0ZXMgZm9yIGFyYzQuZHluYW1pY19hcnJheTxhcmM0LnVpbnQyNTY+CiAgICB0eG5hIEFwcGxpY2F0aW9uQXJncyAyCiAgICBsZW4KICAgIHB1c2hpbnQgMTA1NgogICAgPT0KICAgIGFzc2VydCAvLyBpbnZhbGlkIG51bWJlciBvZiBieXRlcyBmb3IgY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjpQbG9ua1Byb29mCiAgICB0eG4gR3JvdXBJbmRleAogICAgaW50Y18yIC8vIDEKICAgIC0KICAgIHR4bmEgQXBwbGljYXRpb25BcmdzIDMKICAgIGR1cAogICAgbGVuCiAgICBpbnRjXzEgLy8gMzIKICAgID09CiAgICBhc3NlcnQgLy8gaW52YWxpZCBudW1iZXIgb2YgYnl0ZXMgZm9yIGFyYzQuc3RhdGljX2FycmF5PGFyYzQudWludDgsIDMyPgogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjExNQogICAgLy8gdmVyaWZpZXJUeG4uc2VuZGVyID09PSB0aGlzLnRyYW5zZmVyVmVyaWZpZXIudmFsdWUsCiAgICBzd2FwCiAgICBndHhucyBTZW5kZXIKICAgIGludGNfMCAvLyAwCiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NTcKICAgIC8vIHRyYW5zZmVyVmVyaWZpZXIgPSBHbG9iYWxTdGF0ZTxBY2NvdW50Pih7IGtleTogInQiIH0pOwogICAgYnl0ZWNfMiAvLyAidCIKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czoxMTUKICAgIC8vIHZlcmlmaWVyVHhuLnNlbmRlciA9PT0gdGhpcy50cmFuc2ZlclZlcmlmaWVyLnZhbHVlLAogICAgYXBwX2dsb2JhbF9nZXRfZXgKICAgIGFzc2VydCAvLyBjaGVjayBHbG9iYWxTdGF0ZSBleGlzdHMKICAgID09CiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6MTE0LTExNwogICAgLy8gYXNzZXJ0KAogICAgLy8gICB2ZXJpZmllclR4bi5zZW5kZXIgPT09IHRoaXMudHJhbnNmZXJWZXJpZmllci52YWx1ZSwKICAgIC8vICAgImludmFsaWQgdmVyaWZpZXIgdHhuIiwKICAgIC8vICk7CiAgICBhc3NlcnQgLy8gaW52YWxpZCB2ZXJpZmllciB0eG4KICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czoxMjYKICAgIC8vIF0gPSBzaWduYWxzOwogICAgZGlnIDEKICAgIGV4dHJhY3QgMiAzMgogICAgY292ZXIgMgogICAgZGlnIDEKICAgIGV4dHJhY3QgMzQgMzIKICAgIGRpZyAyCiAgICBleHRyYWN0IDY2IDMyCiAgICBkaWcgMwogICAgZXh0cmFjdCA5OCAzMgogICAgZGlnIDQKICAgIGV4dHJhY3QgMTMwIDMyCiAgICB1bmNvdmVyIDUKICAgIGV4dHJhY3QgMTYyIDMyCiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6MTI4CiAgICAvLyBjb25zdCByZWNlaXZlcktleSA9IHsgYWRkcjogcmVjZWl2ZXIsIGFzc2V0OiBhc3NldC5hc1VpbnQ2NCgpIH07CiAgICBkdXAKICAgIGJpdGxlbgogICAgcHVzaGludCA2NAogICAgPD0KICAgIGFzc2VydCAvLyBvdmVyZmxvdwogICAgZXh0cmFjdCAyNCA4CiAgICBkaWcgNQogICAgZGlnIDEKICAgIGNvbmNhdAogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjEyOQogICAgLy8gY29uc3Qgc2VuZGVyS2V5ID0geyBhZGRyOiBUeG4uc2VuZGVyLCBhc3NldDogYXNzZXQuYXNVaW50NjQoKSB9OwogICAgdHhuIFNlbmRlcgogICAgdW5jb3ZlciAyCiAgICBjb25jYXQKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czoxMzIKICAgIC8vIEJpZ1VpbnQoVHhuLnNlbmRlci5ieXRlcykgJSBCTFMxMl8zODFfU0NBTEFSX01PRFVMVVMgPT09CiAgICB0eG4gU2VuZGVyCiAgICBieXRlY18wIC8vIDB4NzNlZGE3NTMyOTlkN2Q0ODMzMzlkODA4MDlhMWQ4MDU1M2JkYTQwMmZmZmU1YmZlZmZmZmZmZmYwMDAwMDAwMQogICAgYiUKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czoxMzItMTMzCiAgICAvLyBCaWdVaW50KFR4bi5zZW5kZXIuYnl0ZXMpICUgQkxTMTJfMzgxX1NDQUxBUl9NT0RVTFVTID09PQogICAgLy8gICBzZW5kZXJBZGRyLmFzQmlnVWludCgpLAogICAgdW5jb3ZlciA0CiAgICBiPT0KICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czoxMzEtMTM1CiAgICAvLyBhc3NlcnQoCiAgICAvLyAgIEJpZ1VpbnQoVHhuLnNlbmRlci5ieXRlcykgJSBCTFMxMl8zODFfU0NBTEFSX01PRFVMVVMgPT09CiAgICAvLyAgICAgc2VuZGVyQWRkci5hc0JpZ1VpbnQoKSwKICAgIC8vICAgInNlbmRlciBkb2VzIG5vdCBtYXRjaCBjaXJjdWl0IHNlbmRlciIsCiAgICAvLyApOwogICAgYXNzZXJ0IC8vIHNlbmRlciBkb2VzIG5vdCBtYXRjaCBjaXJjdWl0IHNlbmRlcgogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjEzOAogICAgLy8gQmlnVWludChyZWNlaXZlci5ieXRlcykgJSBCTFMxMl8zODFfU0NBTEFSX01PRFVMVVMgPT09CiAgICB1bmNvdmVyIDUKICAgIGJ5dGVjXzAgLy8gMHg3M2VkYTc1MzI5OWQ3ZDQ4MzMzOWQ4MDgwOWExZDgwNTUzYmRhNDAyZmZmZTViZmVmZmZmZmZmZjAwMDAwMDAxCiAgICBiJQogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjEzOC0xMzkKICAgIC8vIEJpZ1VpbnQocmVjZWl2ZXIuYnl0ZXMpICUgQkxTMTJfMzgxX1NDQUxBUl9NT0RVTFVTID09PQogICAgLy8gICByZWNlaXZlckFkZHIuYXNCaWdVaW50KCksCiAgICB1bmNvdmVyIDMKICAgIGI9PQogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjEzNy0xNDEKICAgIC8vIGFzc2VydCgKICAgIC8vICAgQmlnVWludChyZWNlaXZlci5ieXRlcykgJSBCTFMxMl8zODFfU0NBTEFSX01PRFVMVVMgPT09CiAgICAvLyAgICAgcmVjZWl2ZXJBZGRyLmFzQmlnVWludCgpLAogICAgLy8gICAicmVjZWl2ZXIgZG9lcyBub3QgbWF0Y2ggY2lyY3VpdCBzZW5kZXIiLAogICAgLy8gKTsKICAgIGFzc2VydCAvLyByZWNlaXZlciBkb2VzIG5vdCBtYXRjaCBjaXJjdWl0IHNlbmRlcgogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjE0NAogICAgLy8gb2xkQmFsYW5jZUNvbW1pdG1lbnQgPT09IHRoaXMuYmFsYW5jZXMoc2VuZGVyS2V5KS52YWx1ZSwKICAgIGR1cAogICAgZXh0cmFjdCAzMiA4CiAgICBzd2FwCiAgICBleHRyYWN0IDAgMzIKICAgIGNvbmNhdAogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjU5CiAgICAvLyBiYWxhbmNlcyA9IEJveE1hcDxCYWxhbmNlS2V5LCBVaW50MjU2Pih7IGtleVByZWZpeDogImIiIH0pOwogICAgYnl0ZWNfMyAvLyAiYiIKICAgIHN3YXAKICAgIGNvbmNhdAogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjE0NAogICAgLy8gb2xkQmFsYW5jZUNvbW1pdG1lbnQgPT09IHRoaXMuYmFsYW5jZXMoc2VuZGVyS2V5KS52YWx1ZSwKICAgIGR1cAogICAgYm94X2dldAogICAgYXNzZXJ0IC8vIEJveCBtdXN0IGhhdmUgdmFsdWUKICAgIHVuY292ZXIgNAogICAgPT0KICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czoxNDMtMTQ2CiAgICAvLyBhc3NlcnQoCiAgICAvLyAgIG9sZEJhbGFuY2VDb21taXRtZW50ID09PSB0aGlzLmJhbGFuY2VzKHNlbmRlcktleSkudmFsdWUsCiAgICAvLyAgICJvbGQgYmFsYW5jZSBkb2VzIG5vdCBtYXRjaCIsCiAgICAvLyApOwogICAgYXNzZXJ0IC8vIG9sZCBiYWxhbmNlIGRvZXMgbm90IG1hdGNoCiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6MTQ4CiAgICAvLyB0aGlzLmJhbGFuY2VzKHNlbmRlcktleSkudmFsdWUgPSBuZXdCYWxhbmNlQ29tbWl0bWVudDsKICAgIHVuY292ZXIgMgogICAgYm94X3B1dAogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjE1MAogICAgLy8gaWYgKCF0aGlzLnBlbmRpbmdUcmFuc2ZlcnMocmVjZWl2ZXJLZXkpLmV4aXN0cykgewogICAgZHVwCiAgICBleHRyYWN0IDMyIDgKICAgIHN3YXAKICAgIGV4dHJhY3QgMCAzMgogICAgY29uY2F0CiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6NjIKICAgIC8vIHBlbmRpbmdUcmFuc2ZlcnMgPSBCb3hNYXA8QmFsYW5jZUtleSwgVWludDI1NltdPih7IGtleVByZWZpeDogInAiIH0pOwogICAgcHVzaGJ5dGVzICJwIgogICAgc3dhcAogICAgY29uY2F0CiAgICBkdXAKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czoxNTAKICAgIC8vIGlmICghdGhpcy5wZW5kaW5nVHJhbnNmZXJzKHJlY2VpdmVyS2V5KS5leGlzdHMpIHsKICAgIGJveF9sZW4KICAgIGJ1cnkgMQogICAgYm56IHRyYW5zZmVyX2FmdGVyX2lmX2Vsc2VAMwogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjE1MQogICAgLy8gdGhpcy5wZW5kaW5nVHJhbnNmZXJzKHJlY2VpdmVyS2V5KS5jcmVhdGUoeyBzaXplOiAyXzAwMCB9KTsKICAgIGR1cAogICAgcHVzaGludCAyMDAwCiAgICBib3hfY3JlYXRlCiAgICBwb3AKCnRyYW5zZmVyX2FmdGVyX2lmX2Vsc2VAMzoKICAgIGR1cG4gMgogICAgLy8gY29udHJhY3RzL1ZlbGFyZS5hbGdvLnRzOjE1MwogICAgLy8gdGhpcy5wZW5kaW5nVHJhbnNmZXJzKHJlY2VpdmVyS2V5KS52YWx1ZS5wdXNoKHhmZXJDb21taXRtZW50KTsKICAgIGludGNfMCAvLyAwCiAgICBpbnRjXzMgLy8gMgogICAgYm94X2V4dHJhY3QKICAgIGJ0b2kKICAgIGRpZyAxCiAgICBib3hfbGVuCiAgICBwb3AKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czoxNTMKICAgIC8vIHRoaXMucGVuZGluZ1RyYW5zZmVycyhyZWNlaXZlcktleSkudmFsdWUucHVzaCh4ZmVyQ29tbWl0bWVudCk7CiAgICBpbnRjXzEgLy8gMzIKICAgICsKICAgIGRpZyAyCiAgICBzd2FwCiAgICBib3hfcmVzaXplCiAgICBkdXAKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czoxNTMKICAgIC8vIHRoaXMucGVuZGluZ1RyYW5zZmVycyhyZWNlaXZlcktleSkudmFsdWUucHVzaCh4ZmVyQ29tbWl0bWVudCk7CiAgICBpbnRjXzIgLy8gMQogICAgKwogICAgaXRvYgogICAgZXh0cmFjdCA2IDIKICAgIGRpZyAyCiAgICAvLyBjb250cmFjdHMvVmVsYXJlLmFsZ28udHM6MTUzCiAgICAvLyB0aGlzLnBlbmRpbmdUcmFuc2ZlcnMocmVjZWl2ZXJLZXkpLnZhbHVlLnB1c2goeGZlckNvbW1pdG1lbnQpOwogICAgaW50Y18wIC8vIDAKICAgIHVuY292ZXIgMgogICAgYm94X3JlcGxhY2UKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czoxNTMKICAgIC8vIHRoaXMucGVuZGluZ1RyYW5zZmVycyhyZWNlaXZlcktleSkudmFsdWUucHVzaCh4ZmVyQ29tbWl0bWVudCk7CiAgICBpbnRjXzEgLy8gMzIKICAgICoKICAgIGludGNfMyAvLyAyCiAgICArCiAgICBpbnRjXzAgLy8gMAogICAgZGlnIDQKICAgIGJveF9zcGxpY2UKICAgIC8vIGNvbnRyYWN0cy9WZWxhcmUuYWxnby50czoxMDgtMTEzCiAgICAvLyB0cmFuc2ZlcigKICAgIC8vICAgc2lnbmFsczogVWludDI1NltdLAogICAgLy8gICBfcHJvb2Y6IFBsb25rUHJvb2YsCiAgICAvLyAgIHZlcmlmaWVyVHhuOiBndHhuLlRyYW5zYWN0aW9uLAogICAgLy8gICByZWNlaXZlcjogQWNjb3VudCwKICAgIC8vICkgewogICAgaW50Y18yIC8vIDEKICAgIHJldHVybgo=","clear":"I3ByYWdtYSB2ZXJzaW9uIDExCiNwcmFnbWEgdHlwZXRyYWNrIGZhbHNlCgovLyBAYWxnb3JhbmRmb3VuZGF0aW9uL2FsZ29yYW5kLXR5cGVzY3JpcHQvYmFzZS1jb250cmFjdC5kLnRzOjpCYXNlQ29udHJhY3QuY2xlYXJTdGF0ZVByb2dyYW0oKSAtPiB1aW50NjQ6Cm1haW46CiAgICBwdXNoaW50IDEKICAgIHJldHVybgo="},"byteCode":{"approval":"CyAEACABAiYEIHPtp1MpnX1IMznYCAmh2AVTvaQC//5b/v////8AAAABAWQBdAFiMRkURDEYQQAWggIEYXcgFQRBg/+fNhoAjgIAKACyAIAEtMd9cTYaAI4BAAEANhoBSRUjEkQ2GgJJFSMSRClPAmcqTGckQzYaAUkiWSMLJQhLARUSRDYaAhWBoAgSRDEWJQkxFiQJSTgQJBJEMQAiFlBJVyAITFcAIFArTFBJvUUBFERPAjgAIillRBJESwJXAiBLA1ciIEsEV0IgTwVXYiBMgACoRDIKcwFETwRPBL8yCnMBREwJMQAoqk8DqERLAjgITAkWqEQ4BzIKEkQkQzYaAUkiWSMLJQhLARUSRDYaAhWBoAgSRDEWJAk2GgNJFSMSREw4ACIqZUQSREsBVwIgTgJLAVciIEsCV0IgSwNXYiBLBFeCIE8FV6IgSZOBQA5EVxgISwVLAVAxAE8CUDEAKKpPBKhETwUoqk8DqERJVyAITFcAIFArTFBJvkRPBBJETwK/SVcgCExXACBQgAFwTFBJvUUBQAAGSYHQD7lIRwIiJboXSwG9SCMISwJM00kkCBZXBgJLAiJPArsjCyUIIksE0iRD","clear":"C4EBQw=="},"events":[],"templateVariables":{}} as unknown as Arc56Contract
 
 /**
  * A state record containing binary data
@@ -111,8 +111,9 @@ export type VelareArgs = {
    * The object representation of the arguments for each method
    */
   obj: {
-    'createApplication(address)void': {
+    'createApplication(address,address)void': {
       depositVerifier: string
+      transferVerifier: string
     }
     'initializeAlgoBalance(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,pay)void': {
       signals: bigint[] | number[]
@@ -120,13 +121,20 @@ export type VelareArgs = {
       verifierTxn: AppMethodCallTransactionArgument
       depositTxn: AppMethodCallTransactionArgument
     }
+    'transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void': {
+      signals: bigint[] | number[]
+      _proof: PlonkProof
+      verifierTxn: AppMethodCallTransactionArgument
+      receiver: string
+    }
   }
   /**
    * The tuple representation of the arguments for each method
    */
   tuple: {
-    'createApplication(address)void': [depositVerifier: string]
+    'createApplication(address,address)void': [depositVerifier: string, transferVerifier: string]
     'initializeAlgoBalance(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,pay)void': [signals: bigint[] | number[], _proof: PlonkProof, verifierTxn: AppMethodCallTransactionArgument, depositTxn: AppMethodCallTransactionArgument]
+    'transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void': [signals: bigint[] | number[], _proof: PlonkProof, verifierTxn: AppMethodCallTransactionArgument, receiver: string]
   }
 }
 
@@ -134,8 +142,9 @@ export type VelareArgs = {
  * The return type for each method
  */
 export type VelareReturns = {
-  'createApplication(address)void': void
+  'createApplication(address,address)void': void
   'initializeAlgoBalance(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,pay)void': void
+  'transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void': void
 }
 
 /**
@@ -146,15 +155,20 @@ export type VelareTypes = {
    * Maps method signatures / names to their argument and return types.
    */
   methods:
-    & Record<'createApplication(address)void' | 'createApplication', {
-      argsObj: VelareArgs['obj']['createApplication(address)void']
-      argsTuple: VelareArgs['tuple']['createApplication(address)void']
-      returns: VelareReturns['createApplication(address)void']
+    & Record<'createApplication(address,address)void' | 'createApplication', {
+      argsObj: VelareArgs['obj']['createApplication(address,address)void']
+      argsTuple: VelareArgs['tuple']['createApplication(address,address)void']
+      returns: VelareReturns['createApplication(address,address)void']
     }>
     & Record<'initializeAlgoBalance(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,pay)void' | 'initializeAlgoBalance', {
       argsObj: VelareArgs['obj']['initializeAlgoBalance(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,pay)void']
       argsTuple: VelareArgs['tuple']['initializeAlgoBalance(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,pay)void']
       returns: VelareReturns['initializeAlgoBalance(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,pay)void']
+    }>
+    & Record<'transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void' | 'transfer', {
+      argsObj: VelareArgs['obj']['transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void']
+      argsTuple: VelareArgs['tuple']['transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void']
+      returns: VelareReturns['transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void']
     }>
   /**
    * Defines the shape of the state of the application.
@@ -163,6 +177,7 @@ export type VelareTypes = {
     global: {
       keys: {
         depositVerifier: string
+        transferVerifier: string
       }
       maps: {}
     }
@@ -170,6 +185,7 @@ export type VelareTypes = {
       keys: {}
       maps: {
         balances: Map<BalanceKey, bigint>
+        pendingTransfers: Map<BalanceKey, bigint[]>
       }
     }
   }
@@ -213,8 +229,8 @@ export type BoxKeysState = VelareTypes['state']['box']['keys']
  * Defines supported create method params for this smart contract
  */
 export type VelareCreateCallParams =
-  | Expand<CallParams<VelareArgs['obj']['createApplication(address)void'] | VelareArgs['tuple']['createApplication(address)void']> & {method: 'createApplication'} & {onComplete?: OnApplicationComplete.NoOpOC} & CreateSchema>
-  | Expand<CallParams<VelareArgs['obj']['createApplication(address)void'] | VelareArgs['tuple']['createApplication(address)void']> & {method: 'createApplication(address)void'} & {onComplete?: OnApplicationComplete.NoOpOC} & CreateSchema>
+  | Expand<CallParams<VelareArgs['obj']['createApplication(address,address)void'] | VelareArgs['tuple']['createApplication(address,address)void']> & {method: 'createApplication'} & {onComplete?: OnApplicationComplete.NoOpOC} & CreateSchema>
+  | Expand<CallParams<VelareArgs['obj']['createApplication(address,address)void'] | VelareArgs['tuple']['createApplication(address,address)void']> & {method: 'createApplication(address,address)void'} & {onComplete?: OnApplicationComplete.NoOpOC} & CreateSchema>
 /**
  * Defines arguments required for the deploy method.
  */
@@ -238,23 +254,23 @@ export abstract class VelareParamsFactory {
       _resolveByMethod<TParams extends VelareCreateCallParams & {method: string}>(params: TParams) {
         switch(params.method) {
           case 'createApplication':
-          case 'createApplication(address)void':
+          case 'createApplication(address,address)void':
             return VelareParamsFactory.create.createApplication(params)
         }
         throw new Error(`Unknown ' + verb + ' method`)
       },
 
       /**
-       * Constructs create ABI call params for the Velare smart contract using the createApplication(address)void ABI method
+       * Constructs create ABI call params for the Velare smart contract using the createApplication(address,address)void ABI method
        *
        * @param params Parameters for the call
        * @returns An `AppClientMethodCallParams` object for the call
        */
-      createApplication(params: CallParams<VelareArgs['obj']['createApplication(address)void'] | VelareArgs['tuple']['createApplication(address)void']> & AppClientCompilationParams & {onComplete?: OnApplicationComplete.NoOpOC}): AppClientMethodCallParams & AppClientCompilationParams & {onComplete?: OnApplicationComplete.NoOpOC} {
+      createApplication(params: CallParams<VelareArgs['obj']['createApplication(address,address)void'] | VelareArgs['tuple']['createApplication(address,address)void']> & AppClientCompilationParams & {onComplete?: OnApplicationComplete.NoOpOC}): AppClientMethodCallParams & AppClientCompilationParams & {onComplete?: OnApplicationComplete.NoOpOC} {
         return {
           ...params,
-          method: 'createApplication(address)void' as const,
-          args: Array.isArray(params.args) ? params.args : [params.args.depositVerifier],
+          method: 'createApplication(address,address)void' as const,
+          args: Array.isArray(params.args) ? params.args : [params.args.depositVerifier, params.args.transferVerifier],
         }
       },
     }
@@ -271,6 +287,19 @@ export abstract class VelareParamsFactory {
       ...params,
       method: 'initializeAlgoBalance(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,pay)void' as const,
       args: Array.isArray(params.args) ? params.args : [params.args.signals, params.args._proof, params.args.verifierTxn, params.args.depositTxn],
+    }
+  }
+  /**
+   * Constructs a no op call for the transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void ABI method
+   *
+   * @param params Parameters for the call
+   * @returns An `AppClientMethodCallParams` object for the call
+   */
+  static transfer(params: CallParams<VelareArgs['obj']['transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void'] | VelareArgs['tuple']['transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void']> & CallOnComplete): AppClientMethodCallParams & CallOnComplete {
+    return {
+      ...params,
+      method: 'transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void' as const,
+      args: Array.isArray(params.args) ? params.args : [params.args.signals, params.args._proof, params.args.verifierTxn, params.args.receiver],
     }
   }
 }
@@ -361,12 +390,12 @@ export class VelareFactory {
      */
     create: {
       /**
-       * Creates a new instance of the Velare smart contract using the createApplication(address)void ABI method.
+       * Creates a new instance of the Velare smart contract using the createApplication(address,address)void ABI method.
        *
        * @param params The params for the smart contract call
        * @returns The create params
        */
-      createApplication: (params: CallParams<VelareArgs['obj']['createApplication(address)void'] | VelareArgs['tuple']['createApplication(address)void']> & AppClientCompilationParams & CreateSchema & {onComplete?: OnApplicationComplete.NoOpOC}) => {
+      createApplication: (params: CallParams<VelareArgs['obj']['createApplication(address,address)void'] | VelareArgs['tuple']['createApplication(address,address)void']> & AppClientCompilationParams & CreateSchema & {onComplete?: OnApplicationComplete.NoOpOC}) => {
         return this.appFactory.params.create(VelareParamsFactory.create.createApplication(params))
       },
     },
@@ -382,12 +411,12 @@ export class VelareFactory {
      */
     create: {
       /**
-       * Creates a new instance of the Velare smart contract using the createApplication(address)void ABI method.
+       * Creates a new instance of the Velare smart contract using the createApplication(address,address)void ABI method.
        *
        * @param params The params for the smart contract call
        * @returns The create transaction
        */
-      createApplication: (params: CallParams<VelareArgs['obj']['createApplication(address)void'] | VelareArgs['tuple']['createApplication(address)void']> & AppClientCompilationParams & CreateSchema & {onComplete?: OnApplicationComplete.NoOpOC}) => {
+      createApplication: (params: CallParams<VelareArgs['obj']['createApplication(address,address)void'] | VelareArgs['tuple']['createApplication(address,address)void']> & AppClientCompilationParams & CreateSchema & {onComplete?: OnApplicationComplete.NoOpOC}) => {
         return this.appFactory.createTransaction.create(VelareParamsFactory.create.createApplication(params))
       },
     },
@@ -403,14 +432,14 @@ export class VelareFactory {
      */
     create: {
       /**
-       * Creates a new instance of the Velare smart contract using an ABI method call using the createApplication(address)void ABI method.
+       * Creates a new instance of the Velare smart contract using an ABI method call using the createApplication(address,address)void ABI method.
        *
        * @param params The params for the smart contract call
        * @returns The create result
        */
-      createApplication: async (params: CallParams<VelareArgs['obj']['createApplication(address)void'] | VelareArgs['tuple']['createApplication(address)void']> & AppClientCompilationParams & CreateSchema & SendParams & {onComplete?: OnApplicationComplete.NoOpOC}) => {
+      createApplication: async (params: CallParams<VelareArgs['obj']['createApplication(address,address)void'] | VelareArgs['tuple']['createApplication(address,address)void']> & AppClientCompilationParams & CreateSchema & SendParams & {onComplete?: OnApplicationComplete.NoOpOC}) => {
         const result = await this.appFactory.send.create(VelareParamsFactory.create.createApplication(params))
-        return { result: { ...result.result, return: result.result.return as unknown as (undefined | VelareReturns['createApplication(address)void']) }, appClient: new VelareClient(result.appClient) }
+        return { result: { ...result.result, return: result.result.return as unknown as (undefined | VelareReturns['createApplication(address,address)void']) }, appClient: new VelareClient(result.appClient) }
       },
     },
 
@@ -516,6 +545,16 @@ export class VelareClient {
       return this.appClient.params.call(VelareParamsFactory.initializeAlgoBalance(params))
     },
 
+    /**
+     * Makes a call to the Velare smart contract using the `transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void` ABI method.
+     *
+     * @param params The params for the smart contract call
+     * @returns The call params
+     */
+    transfer: (params: CallParams<VelareArgs['obj']['transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void'] | VelareArgs['tuple']['transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void']> & {onComplete?: OnApplicationComplete.NoOpOC}) => {
+      return this.appClient.params.call(VelareParamsFactory.transfer(params))
+    },
+
   }
 
   /**
@@ -540,6 +579,16 @@ export class VelareClient {
      */
     initializeAlgoBalance: (params: CallParams<VelareArgs['obj']['initializeAlgoBalance(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,pay)void'] | VelareArgs['tuple']['initializeAlgoBalance(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,pay)void']> & {onComplete?: OnApplicationComplete.NoOpOC}) => {
       return this.appClient.createTransaction.call(VelareParamsFactory.initializeAlgoBalance(params))
+    },
+
+    /**
+     * Makes a call to the Velare smart contract using the `transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void` ABI method.
+     *
+     * @param params The params for the smart contract call
+     * @returns The call transaction
+     */
+    transfer: (params: CallParams<VelareArgs['obj']['transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void'] | VelareArgs['tuple']['transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void']> & {onComplete?: OnApplicationComplete.NoOpOC}) => {
+      return this.appClient.createTransaction.call(VelareParamsFactory.transfer(params))
     },
 
   }
@@ -569,6 +618,17 @@ export class VelareClient {
       return {...result, return: result.return as unknown as (undefined | VelareReturns['initializeAlgoBalance(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,pay)void'])}
     },
 
+    /**
+     * Makes a call to the Velare smart contract using the `transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void` ABI method.
+     *
+     * @param params The params for the smart contract call
+     * @returns The call result
+     */
+    transfer: async (params: CallParams<VelareArgs['obj']['transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void'] | VelareArgs['tuple']['transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void']> & SendParams & {onComplete?: OnApplicationComplete.NoOpOC}) => {
+      const result = await this.appClient.send.call(VelareParamsFactory.transfer(params))
+      return {...result, return: result.return as unknown as (undefined | VelareReturns['transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void'])}
+    },
+
   }
 
   /**
@@ -596,12 +656,17 @@ export class VelareClient {
         const result = await this.appClient.state.global.getAll()
         return {
           depositVerifier: result.depositVerifier,
+          transferVerifier: result.transferVerifier,
         }
       },
       /**
        * Get the current value of the depositVerifier key in global state
        */
       depositVerifier: async (): Promise<string | undefined> => { return (await this.appClient.state.global.getValue("depositVerifier")) as string | undefined },
+      /**
+       * Get the current value of the transferVerifier key in global state
+       */
+      transferVerifier: async (): Promise<string | undefined> => { return (await this.appClient.state.global.getValue("transferVerifier")) as string | undefined },
     },
     /**
      * Methods to access box state for the current Velare app
@@ -628,6 +693,19 @@ export class VelareClient {
          */
         value: async (key: BalanceKey): Promise<bigint | undefined> => { return await this.appClient.state.box.getMapValue("balances", key) as bigint | undefined },
       },
+      /**
+       * Get values from the pendingTransfers map in box state
+       */
+      pendingTransfers: {
+        /**
+         * Get all current values of the pendingTransfers map in box state
+         */
+        getMap: async (): Promise<Map<BalanceKey, bigint[]>> => { return (await this.appClient.state.box.getMap("pendingTransfers")) as Map<BalanceKey, bigint[]> },
+        /**
+         * Get a current value of the pendingTransfers map by key from box state
+         */
+        value: async (key: BalanceKey): Promise<bigint[] | undefined> => { return await this.appClient.state.box.getMapValue("pendingTransfers", key) as bigint[] | undefined },
+      },
     },
   }
 
@@ -642,6 +720,14 @@ export class VelareClient {
        */
       initializeAlgoBalance(params: CallParams<VelareArgs['obj']['initializeAlgoBalance(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,pay)void'] | VelareArgs['tuple']['initializeAlgoBalance(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,pay)void']> & {onComplete?: OnApplicationComplete.NoOpOC}) {
         promiseChain = promiseChain.then(async () => composer.addAppCallMethodCall(await client.params.initializeAlgoBalance(params)))
+        resultMappers.push(undefined)
+        return this
+      },
+      /**
+       * Add a transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void method call against the Velare contract
+       */
+      transfer(params: CallParams<VelareArgs['obj']['transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void'] | VelareArgs['tuple']['transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void']> & {onComplete?: OnApplicationComplete.NoOpOC}) {
+        promiseChain = promiseChain.then(async () => composer.addAppCallMethodCall(await client.params.transfer(params)))
         resultMappers.push(undefined)
         return this
       },
@@ -688,6 +774,15 @@ export type VelareComposer<TReturns extends [...any[]] = []> = {
    * @returns The typed transaction composer so you can fluently chain multiple calls or call execute to execute all queued up transactions
    */
   initializeAlgoBalance(params?: CallParams<VelareArgs['obj']['initializeAlgoBalance(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,pay)void'] | VelareArgs['tuple']['initializeAlgoBalance(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,pay)void']>): VelareComposer<[...TReturns, VelareReturns['initializeAlgoBalance(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,pay)void'] | undefined]>
+
+  /**
+   * Calls the transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void ABI method.
+   *
+   * @param args The arguments for the contract call
+   * @param params Any additional parameters for the call
+   * @returns The typed transaction composer so you can fluently chain multiple calls or call execute to execute all queued up transactions
+   */
+  transfer(params?: CallParams<VelareArgs['obj']['transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void'] | VelareArgs['tuple']['transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void']>): VelareComposer<[...TReturns, VelareReturns['transfer(uint256[],(byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],byte[96],uint256,uint256,uint256,uint256,uint256,uint256),txn,address)void'] | undefined]>
 
   /**
    * Makes a clear_state call to an existing instance of the Velare smart contract.

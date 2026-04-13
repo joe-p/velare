@@ -54,10 +54,16 @@ export type BalanceKey = {
 export class Velare extends Contract {
   depositVerifier = GlobalState<Account>({ key: "d" });
 
+  transferVerifier = GlobalState<Account>({ key: "t" });
+
   balances = BoxMap<BalanceKey, Uint256>({ keyPrefix: "b" });
 
-  createApplication(depositVerifier: Account) {
+  // TODO: Add a uint64 index to the key so we don't have a cap
+  pendingTransfers = BoxMap<BalanceKey, Uint256[]>({ keyPrefix: "p" });
+
+  createApplication(depositVerifier: Account, transferVerifier: Account) {
     this.depositVerifier.value = depositVerifier;
+    this.transferVerifier.value = transferVerifier;
   }
 
   initializeAlgoBalance(
@@ -75,6 +81,8 @@ export class Velare extends Contract {
     );
 
     const [commitment, addr, asset, amount] = signals;
+
+    assert(asset.asBigUint() === BigUint(0), "asset must be ALGO");
 
     const preMbr = Global.currentApplicationAddress.minBalance;
     this.balances(balanceKey).value = commitment;
@@ -97,5 +105,51 @@ export class Velare extends Contract {
     );
   }
 
-  transfer(signals: Uint256[], _proof: PlonkProof) {}
+  transfer(
+    signals: Uint256[],
+    _proof: PlonkProof,
+    verifierTxn: gtxn.Transaction,
+    receiver: Account,
+  ) {
+    assert(
+      verifierTxn.sender === this.transferVerifier.value,
+      "invalid verifier txn",
+    );
+
+    const [
+      xferCommitment,
+      oldBalanceCommitment,
+      newBalanceCommitment,
+      senderAddr,
+      receiverAddr,
+      asset,
+    ] = signals;
+
+    const receiverKey = { addr: receiver, asset: asset.asUint64() };
+    const senderKey = { addr: Txn.sender, asset: asset.asUint64() };
+
+    assert(
+      BigUint(Txn.sender.bytes) % BLS12_381_SCALAR_MODULUS ===
+        senderAddr.asBigUint(),
+      "sender does not match circuit sender",
+    );
+
+    assert(
+      BigUint(receiver.bytes) % BLS12_381_SCALAR_MODULUS ===
+        receiverAddr.asBigUint(),
+      "receiver does not match circuit sender",
+    );
+
+    assert(
+      oldBalanceCommitment === this.balances(senderKey).value,
+      "old balance does not match",
+    );
+
+    this.balances(senderKey).value = newBalanceCommitment;
+
+    if (!this.pendingTransfers(receiverKey).exists) {
+      this.pendingTransfers(receiverKey).create({ size: 2_000 });
+    }
+    this.pendingTransfers(receiverKey).value.push(xferCommitment);
+  }
 }

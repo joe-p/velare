@@ -39,10 +39,32 @@ export function depositVerifier(algorand: AlgorandClient): PlonkLsigVerifier {
   });
 }
 
+export function transferVerifier(algorand: AlgorandClient): PlonkLsigVerifier {
+  const thisFileDir = new URL(".", import.meta.url);
+
+  const zKey = path.join(
+    thisFileDir.pathname,
+    "../../circuits/zkeys/transfer.zkey",
+  );
+  const wasmProver = path.join(
+    thisFileDir.pathname,
+    "../../circuits/out/transfer_js/transfer.wasm",
+  );
+
+  return new PlonkLsigVerifier({
+    algorand,
+    zKey,
+    wasmProver,
+    totalLsigs: 13,
+    appOffset: 1,
+  });
+}
+
 export class VelareClient {
   appClient: GeneratedClient;
   algorand: AlgorandClient;
   depositVerifier: PlonkLsigVerifier;
+  transferVerifier: PlonkLsigVerifier;
 
   constructor(algorand: AlgorandClient, appId: bigint) {
     this.appClient = algorand.client.getTypedAppClientById(GeneratedClient, {
@@ -50,6 +72,7 @@ export class VelareClient {
     });
 
     this.depositVerifier = depositVerifier(algorand);
+    this.transferVerifier = transferVerifier(algorand);
 
     this.algorand = algorand;
   }
@@ -62,6 +85,9 @@ export class VelareClient {
       args: {
         depositVerifier: (
           await depositVerifier(algorand).lsigAccount()
+        ).addr.toString(),
+        transferVerifier: (
+          await transferVerifier(algorand).lsigAccount()
         ).addr.toString(),
       },
     });
@@ -114,6 +140,71 @@ export class VelareClient {
                 receiver: this.appClient.appAddress,
                 amount: microAlgos(amount + BALANCE_MBR),
               }),
+            },
+            extraFee: microAlgos(lsigsFee.microAlgos),
+          });
+        } else {
+          throw Error("ASAs not yet supported");
+        }
+      },
+    });
+
+    return {
+      group,
+      inputs,
+    };
+  }
+
+  async composeTransferGroup({
+    sender,
+    receiver,
+    asset,
+    amount,
+    balance_secret,
+    xfer_secret,
+    old_balance,
+  }: {
+    sender: algosdk.Address;
+    receiver: algosdk.Address;
+    asset: bigint;
+    amount: bigint;
+    balance_secret: bigint;
+    xfer_secret: bigint;
+    old_balance: bigint;
+  }) {
+    const group = this.appClient.newGroup();
+
+    const inputs = {
+      sender_addr: addressInScalarField(sender.publicKey),
+      receiver_addr: [addressInScalarField(receiver.publicKey)],
+      asset,
+      xfer_amt: [amount],
+      xfer_secret: [xfer_secret],
+      old_balance,
+      new_balance: old_balance - 5n,
+      balance_secret: balance_secret,
+    };
+
+    await this.transferVerifier.verificationParams({
+      composer: group,
+      inputs,
+      paramsCallback: async (params) => {
+        const { lsigParams, lsigsFee, args } = params;
+
+        const verifierTxn = this.algorand.createTransaction.payment({
+          ...lsigParams,
+          receiver: lsigParams.sender,
+          amount: microAlgos(0),
+        });
+
+        if (asset === 0n) {
+          group.transfer({
+            sender,
+            args: {
+              verifierTxn,
+              signals: args.signals,
+              _proof: args.proof,
+              receiver: receiver.toString(),
             },
             extraFee: microAlgos(lsigsFee.microAlgos),
           });

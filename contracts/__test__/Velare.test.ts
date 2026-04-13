@@ -1,14 +1,18 @@
-import { beforeAll, describe, it } from "vitest";
+import { beforeAll, describe, it, beforeEach } from "vitest";
 import { VelareClient } from "../src";
-import { AlgorandClient } from "@algorandfoundation/algokit-utils";
+import {
+  AlgorandClient,
+  algos,
+  microAlgos,
+} from "@algorandfoundation/algokit-utils";
 import algosdk from "algosdk";
 
-describe("Velare", () => {
+describe("Velare", async () => {
   let algorand: AlgorandClient;
   let sender: algosdk.Address;
   let client: VelareClient;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     algorand = AlgorandClient.defaultLocalNet();
     sender = (await algorand.account.dispenserFromEnvironment()).addr;
     client = await VelareClient.deploy(algorand, sender);
@@ -22,5 +26,48 @@ describe("Velare", () => {
       1337n,
     );
     await group.send();
+  });
+
+  it("should transfer", async () => {
+    const receiver = algorand.account.random();
+    await algorand.account.ensureFundedFromEnvironment(
+      receiver,
+      microAlgos(5_000_000),
+    );
+
+    const { group: senderInitGroup } = await client.composeInitializeGroup(
+      sender,
+      0n,
+      5n,
+      1337n,
+    );
+    await senderInitGroup.send();
+
+    const { group: receiverInitGroup } = await client.composeInitializeGroup(
+      receiver,
+      0n,
+      5n,
+      1337n,
+    );
+    await receiverInitGroup.send();
+
+    const mbrAmt = 831_690;
+
+    await algorand.send.payment({
+      sender,
+      receiver: client.appClient.appAddress,
+      amount: microAlgos(mbrAmt),
+    });
+
+    const { group: xferGroup } = await client.composeTransferGroup({
+      sender,
+      receiver,
+      asset: 0n,
+      amount: 5n,
+      balance_secret: 1337n,
+      xfer_secret: 1337n,
+      old_balance: 5n,
+    });
+    await xferGroup.send();
   });
 });
