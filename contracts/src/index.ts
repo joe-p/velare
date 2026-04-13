@@ -1,7 +1,7 @@
 import {
-  ConfidentialTransactionsClient as GeneratedClient,
-  ConfidentialTransactionsFactory as GeneratedFactory,
-} from "../contracts/clients/ConfidentialTransactionsClient";
+  VelareClient as GeneratedClient,
+  VelareFactory as GeneratedFactory,
+} from "../contracts/clients/VelareClient";
 import { AlgorandClient, microAlgos } from "@algorandfoundation/algokit-utils";
 import algosdk from "algosdk";
 import path from "node:path";
@@ -39,7 +39,7 @@ export function depositVerifier(algorand: AlgorandClient): PlonkLsigVerifier {
   });
 }
 
-export class ConfidentialTransactionsClient {
+export class VelareClient {
   appClient: GeneratedClient;
   algorand: AlgorandClient;
   depositVerifier: PlonkLsigVerifier;
@@ -72,7 +72,7 @@ export class ConfidentialTransactionsClient {
       amount: microAlgos(100_000),
     });
 
-    return new ConfidentialTransactionsClient(algorand, result.appClient.appId);
+    return new VelareClient(algorand, result.appClient.appId);
   }
 
   async composeInitializeGroup(

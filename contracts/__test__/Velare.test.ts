@@ -1,17 +1,17 @@
 import { beforeAll, describe, it } from "vitest";
-import { ConfidentialTransactionsClient } from "../src";
+import { VelareClient } from "../src";
 import { AlgorandClient } from "@algorandfoundation/algokit-utils";
 import algosdk from "algosdk";
 
-describe("ConfidentialTransactions", () => {
+describe("Velare", () => {
   let algorand: AlgorandClient;
   let sender: algosdk.Address;
-  let client: ConfidentialTransactionsClient;
+  let client: VelareClient;
 
   beforeAll(async () => {
     algorand = AlgorandClient.defaultLocalNet();
     sender = (await algorand.account.dispenserFromEnvironment()).addr;
-    client = await ConfidentialTransactionsClient.deploy(algorand, sender);
+    client = await VelareClient.deploy(algorand, sender);
   });
 
   it("should initialize", async () => {

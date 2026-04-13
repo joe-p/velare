@@ -51,7 +51,7 @@ export type BalanceKey = {
   addr: Account;
 };
 
-export class ConfidentialTransactions extends Contract {
+export class Velare extends Contract {
   depositVerifier = GlobalState<Account>({ key: "d" });
 
   balances = BoxMap<BalanceKey, Uint256>({ keyPrefix: "b" });

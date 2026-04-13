@@ -1,5 +1,5 @@
 {
-  "name": "ConfidentialTransactions",
+  "name": "Velare",
   "module": "src/index.ts",
   "type": "module",
   "private": true,
