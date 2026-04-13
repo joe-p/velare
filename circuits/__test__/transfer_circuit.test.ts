@@ -46,12 +46,10 @@ describe("transfer", () => {
         amount: 5n,
         ...senderCommitCommon,
       }),
-      xfer_commitment: mimcSum([
-        calculateCommitment({
-          amount: 5n,
-          ...receiverCommitCommon,
-        }),
-      ]),
+      xfer_commitments: [calculateCommitment({
+        amount: 5n,
+        ...receiverCommitCommon,
+      })],
     });
   });
 });

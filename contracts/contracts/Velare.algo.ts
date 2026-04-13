@@ -96,4 +96,6 @@ export class Velare extends Contract {
       "deposit must go to app address",
     );
   }
+
+  transfer(signals: Uint256[], _proof: PlonkProof) {}
 }

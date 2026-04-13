@@ -5,10 +5,10 @@ include "./node_modules/circomlib/circuits/comparators.circom";
 include "./node_modules/circomlib/circuits/bitify.circom";
 
 template Transfer(N) {
-    //////////////////////////////////////////////
+    ////////////////////////////////////////////////////
     // Public outputs
-    ///////////////////////////////////////////// 
-    signal output xfer_commitment;
+    //////////////////////////////////////////////////// 
+    signal output xfer_commitments[N];
     signal output old_balance_commitment;
     signal output new_balance_commitment;
 
@@ -40,9 +40,8 @@ template Transfer(N) {
     component xfer_amt_gtz[N];
 
     //////////////////////////////////////////////
-    // Xfer commitments (individual + combined)
+    // Xfer commitments
     //////////////////////////////////////////////
-    signal xfer_commitments[N];
     
     for (var i = 0; i < N; i++) {
         XH[i] = MiMC_Sum(4);
@@ -52,13 +51,6 @@ template Transfer(N) {
         XH[i].msgs[3] <== xfer_secret[i];
         xfer_commitments[i] <== XH[i].out;
     }
-    
-    // Combined commitment to all xfer commitments
-    component CombinedXH = MiMC_Sum(N);
-    for (var i = 0; i < N; i++) {
-        CombinedXH.msgs[i] <== xfer_commitments[i];
-    }
-    xfer_commitment <== CombinedXH.out;
 
     component OH = MiMC_Sum(4);
     OH.msgs[0] <== sender_addr;
