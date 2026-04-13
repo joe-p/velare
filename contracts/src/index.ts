@@ -86,7 +86,7 @@ export class ConfidentialTransactionsClient {
     const inputs = {
       addr: addressInScalarField(sender.publicKey),
       asset,
-      amount: 0,
+      amount,
       secret,
     };
 

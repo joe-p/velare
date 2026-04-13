@@ -12,6 +12,7 @@ import {
   assert,
   Global,
   Uint64,
+  log,
 } from "@algorandfoundation/algorand-typescript";
 import { Uint256 } from "@algorandfoundation/algorand-typescript/arc4";
 
@@ -85,10 +86,10 @@ export class ConfidentialTransactions extends Contract {
       "address does not match sender",
     );
 
-    // assert(
-    //   amount.asBigUint() === BigUint(depositTxn.amount - balanceMbr),
-    //   "amount not equal",
-    // );
+    assert(
+      amount.asBigUint() === BigUint(depositTxn.amount - balanceMbr),
+      "commitment amount does not match deposit amount (minus min balance)",
+    );
 
     assert(
       depositTxn.receiver === Global.currentApplicationAddress,
