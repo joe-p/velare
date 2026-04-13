@@ -1,0 +1,30 @@
+{
+  "name": "ConfidentialTransactions",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build:contracts": "puya-ts --output-assembly-report contracts",
+    "build:clients": "tsx scripts/generate_clients.ts",
+    "build": "npm run build:contracts && npm run build:clients",
+    "test": "vitest",
+    "bt": "npm run build && npm run test"
+  },
+  "devDependencies": {
+    "@algorandfoundation/algokit-client-generator": "^6.0.0",
+    "@algorandfoundation/algorand-typescript": "1.2.0-beta.26",
+    "@algorandfoundation/puya-ts": "1.2.0-beta.26",
+    "@types/node": "^25.5.0",
+    "prettier": "^3.8.1",
+    "tsx": "^4.21.0",
+    "vitest": "^4.1.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@algorandfoundation/algokit-utils": "^9.0.0",
+    "algosdk": "^3.5.2",
+    "snarkjs-algorand": "^0.11.0"
+  }
+}
