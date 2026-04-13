@@ -6,6 +6,7 @@ import { AlgorandClient, microAlgos } from "@algorandfoundation/algokit-utils";
 import algosdk from "algosdk";
 import path from "node:path";
 import { PlonkLsigVerifier } from "snarkjs-algorand";
+import { calculateCommitment } from "../../circuits/src/index";
 
 const BALANCE_MBR = 31_700n;
 
@@ -218,5 +219,28 @@ export class VelareClient {
       group,
       inputs,
     };
+  }
+
+  async verifyBalance(opts: {
+    account: algosdk.Address;
+    asset?: bigint;
+    amount: bigint;
+    secret: bigint;
+  }) {
+    const { account, asset, amount, secret } = opts;
+    const balanceBox = await this.appClient.state.box.balances.value({
+      addr: account.toString(),
+      asset: asset ?? 0n,
+    });
+
+    return (
+      balanceBox ===
+      calculateCommitment({
+        claimer: addressInScalarField(account.publicKey),
+        asset: asset ?? 0n,
+        amount,
+        secret,
+      })
+    );
   }
 }

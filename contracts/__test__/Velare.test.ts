@@ -1,4 +1,4 @@
-import { beforeAll, describe, it, beforeEach } from "vitest";
+import { beforeAll, describe, it, beforeEach, expect } from "vitest";
 import { VelareClient } from "../src";
 import {
   AlgorandClient,
@@ -26,6 +26,15 @@ describe("Velare", async () => {
       1337n,
     );
     await group.send();
+
+    expect(
+      await client.verifyBalance({
+        secret: 1337n,
+        asset: 0n,
+        account: sender,
+        amount: 5n,
+      }),
+    ).toBe(true);
   });
 
   it("should transfer", async () => {
@@ -38,7 +47,7 @@ describe("Velare", async () => {
     const { group: senderInitGroup } = await client.composeInitializeGroup(
       sender,
       0n,
-      5n,
+      10n,
       1337n,
     );
     await senderInitGroup.send();
@@ -46,7 +55,7 @@ describe("Velare", async () => {
     const { group: receiverInitGroup } = await client.composeInitializeGroup(
       receiver,
       0n,
-      5n,
+      0n,
       1337n,
     );
     await receiverInitGroup.send();
@@ -66,8 +75,17 @@ describe("Velare", async () => {
       amount: 5n,
       balance_secret: 1337n,
       xfer_secret: 1337n,
-      old_balance: 5n,
+      old_balance: 10n,
     });
     await xferGroup.send();
+
+    expect(
+      await client.verifyBalance({
+        secret: 1337n,
+        asset: 0n,
+        account: sender,
+        amount: 5n,
+      }),
+    ).toBe(true);
   });
 });
