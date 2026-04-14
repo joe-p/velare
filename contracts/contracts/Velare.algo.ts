@@ -9,9 +9,12 @@ import {
   gtxn,
   Txn,
   assert,
+  uint64,
+  biguint,
+  op,
 } from "@algorandfoundation/algorand-typescript";
 import { Uint256 } from "@algorandfoundation/algorand-typescript/arc4";
-import { sha256 } from "@algorandfoundation/algorand-typescript/op";
+import { bzero, sha256 } from "@algorandfoundation/algorand-typescript/op";
 
 /** BLS12-381 scalar field modulus (Fr), 32-byte big-endian */
 export const BLS12_381_SCALAR_MODULUS = BigUint(
@@ -48,77 +51,68 @@ export type PlonkProof = {
  * The receiver and asset are first so they can be used as part of the prefix in a query to algod
  */
 export type UtxoKey = {
-  /** SHA256(receiver || asset) */
-  receiverAssetHash: bytes<32>;
+  /** SHA256(receiver || asset).slice(0, 31) */
+  receiverAssetHash: bytes<31>;
   /** Ephemeral key pair used for the key exchange to generate the UTXO blinding secret */
-  ephemeralKeypair: bytes<32>;
+  ephemeralKey: bytes<32>;
 };
 
 export type UtxoCommitment = Uint256;
 
+function u64IsSignal(u64: uint64, signal: Uint256): boolean {
+  return signal.asBigUint() === BigUint(u64);
+}
+
+function addrIsSignal(addr: Account, signal: Uint256): boolean {
+  return addrInField(addr) === signal.asBigUint();
+}
+
+function addrInField(addr: Account): biguint {
+  return BigUint(addr.bytes) % BLS12_381_SCALAR_MODULUS;
+}
+
 export class Velare extends Contract {
   depositVerifier = GlobalState<Account>({ key: "d" });
 
-  transferVerifier = GlobalState<Account>({ key: "t" });
+  spendVerifier = GlobalState<Account>({ key: "s" });
 
-  utxos = BoxMap<UtxoKey, UtxoCommitment>({ keyPrefix: "" });
+  utxoMap = BoxMap<UtxoKey, UtxoCommitment>({ keyPrefix: "m" });
 
-  createApplication(depositVerifier: Account, transferVerifier: Account) {
+  createApplication(depositVerifier: Account, spendVerifier: Account) {
     this.depositVerifier.value = depositVerifier;
-    this.transferVerifier.value = transferVerifier;
+    this.spendVerifier.value = spendVerifier;
   }
 
-  transfer(
+  depositAlgo(
     signals: Uint256[],
     _proof: PlonkProof,
     verifierTxn: gtxn.Transaction,
-    receiver: Account,
+    depositTxn: gtxn.PaymentTxn,
+    ephemeralKey: bytes<32>,
   ) {
     assert(
-      verifierTxn.sender === this.transferVerifier.value,
+      verifierTxn.sender === this.depositVerifier.value,
       "invalid verifier txn",
     );
 
-    const [
-      xferCommitment,
-      oldBalanceCommitment,
-      newBalanceCommitment,
-      senderAddr,
-      receiverAddr,
-      asset,
-    ] = signals;
+    const [amount, output, asset, receiver] = signals;
 
-    const transferKey: UtxoKey = {
-      sender: Txn.sender,
-      receiverAssetHash: sha256(receiver.bytes.concat(asset.bytes))
-        .slice(16)
-        .toFixed({ length: 16 }),
-      nonce: Txn.txId.slice(15).toFixed({ length: 15 }),
+    assert(
+      amount.asBigUint() <= BigUint(depositTxn.amount),
+      "UTXO amount should be less than or equal to deposit amount",
+    );
+    assert(u64IsSignal(0, asset), "UTXO asset should be 0 for ALGO deposit");
+    assert(
+      addrIsSignal(Txn.sender, receiver),
+      "UTXO receiver should be the depositor",
+    );
+
+    const utxoKey: UtxoKey = {
+      receiverAssetHash: sha256(receiver.bytes.concat(op.itob(0)))
+        .slice(0, 31)
+        .toFixed({ length: 31 }),
+      ephemeralKey,
     };
-    const senderKey = { addr: Txn.sender, asset: asset.asUint64() };
-
-    assert(
-      BigUint(Txn.sender.bytes) % BLS12_381_SCALAR_MODULUS ===
-        senderAddr.asBigUint(),
-      "sender does not match circuit sender",
-    );
-
-    assert(
-      BigUint(receiver.bytes) % BLS12_381_SCALAR_MODULUS ===
-        receiverAddr.asBigUint(),
-      "receiver does not match circuit sender",
-    );
-
-    assert(
-      oldBalanceCommitment === this.balances(senderKey).value,
-      "old balance does not match",
-    );
-
-    this.balances(senderKey).value = newBalanceCommitment;
-
-    if (!this.pendingTransfers(transferKey).exists) {
-      this.pendingTransfers(transferKey).create({ size: 2_000 });
-    }
-    this.pendingTransfers(transferKey).value.push(xferCommitment);
+    this.utxoMap(utxoKey).value = output;
   }
 }

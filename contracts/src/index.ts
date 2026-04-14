@@ -6,9 +6,8 @@ import { AlgorandClient, microAlgos } from "@algorandfoundation/algokit-utils";
 import algosdk from "algosdk";
 import path from "node:path";
 import { PlonkLsigVerifier } from "snarkjs-algorand";
-import { calculateCommitment } from "../../circuits/src/index";
 
-const BALANCE_MBR = 31_700n;
+const UTXO_MBR = 40_900n;
 
 const BLS12_381_SCALAR_MODULUS = BigInt(
   "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
@@ -24,11 +23,11 @@ export function depositVerifier(algorand: AlgorandClient): PlonkLsigVerifier {
 
   const zKey = path.join(
     thisFileDir.pathname,
-    "../../circuits/zkeys/deposit.zkey",
+    "../../circuits/zkeys/deposit_1.zkey",
   );
   const wasmProver = path.join(
     thisFileDir.pathname,
-    "../../circuits/out/deposit_js/deposit.wasm",
+    "../../circuits/out/deposit_1_js/deposit_1.wasm",
   );
 
   return new PlonkLsigVerifier({
@@ -40,16 +39,16 @@ export function depositVerifier(algorand: AlgorandClient): PlonkLsigVerifier {
   });
 }
 
-export function transferVerifier(algorand: AlgorandClient): PlonkLsigVerifier {
+export function spendVerifier(algorand: AlgorandClient): PlonkLsigVerifier {
   const thisFileDir = new URL(".", import.meta.url);
 
   const zKey = path.join(
     thisFileDir.pathname,
-    "../../circuits/zkeys/transfer.zkey",
+    "../../circuits/zkeys/spend_2_2.zkey",
   );
   const wasmProver = path.join(
     thisFileDir.pathname,
-    "../../circuits/out/transfer_js/transfer.wasm",
+    "../../circuits/out/spend_2_2_js/spend.wasm",
   );
 
   return new PlonkLsigVerifier({
@@ -65,7 +64,7 @@ export class VelareClient {
   appClient: GeneratedClient;
   algorand: AlgorandClient;
   depositVerifier: PlonkLsigVerifier;
-  transferVerifier: PlonkLsigVerifier;
+  spendVerifier: PlonkLsigVerifier;
 
   constructor(algorand: AlgorandClient, appId: bigint) {
     this.appClient = algorand.client.getTypedAppClientById(GeneratedClient, {
@@ -73,7 +72,7 @@ export class VelareClient {
     });
 
     this.depositVerifier = depositVerifier(algorand);
-    this.transferVerifier = transferVerifier(algorand);
+    this.spendVerifier = spendVerifier(algorand);
 
     this.algorand = algorand;
   }
@@ -87,8 +86,8 @@ export class VelareClient {
         depositVerifier: (
           await depositVerifier(algorand).lsigAccount()
         ).addr.toString(),
-        transferVerifier: (
-          await transferVerifier(algorand).lsigAccount()
+        spendVerifier: (
+          await spendVerifier(algorand).lsigAccount()
         ).addr.toString(),
       },
     });
@@ -102,19 +101,18 @@ export class VelareClient {
     return new VelareClient(algorand, result.appClient.appId);
   }
 
-  async composeInitializeGroup(
+  async composeDepositGroup(
     sender: algosdk.Address,
     asset: bigint,
     amount: bigint,
-    secret: bigint,
   ) {
     const group = this.appClient.newGroup();
 
     const inputs = {
-      addr: addressInScalarField(sender.publicKey),
       asset,
-      amount,
-      secret,
+      receivers: [addressInScalarField(sender.publicKey)],
+      out_amounts: [amount],
+      out_secrets: [1337n], // TODO: use real secret from ECDH
     };
 
     await this.depositVerifier.verificationParams({
@@ -130,7 +128,7 @@ export class VelareClient {
         });
 
         if (asset === 0n) {
-          group.initializeAlgoBalance({
+          group.depositAlgo({
             sender,
             args: {
               verifierTxn,
@@ -139,8 +137,9 @@ export class VelareClient {
               depositTxn: this.algorand.createTransaction.payment({
                 sender,
                 receiver: this.appClient.appAddress,
-                amount: microAlgos(amount + BALANCE_MBR),
+                amount: microAlgos(amount + UTXO_MBR),
               }),
+              ephemeralKey: new Uint8Array(32), // TODO: use real key
             },
             extraFee: microAlgos(lsigsFee.microAlgos),
           });
@@ -154,93 +153,5 @@ export class VelareClient {
       group,
       inputs,
     };
-  }
-
-  async composeTransferGroup({
-    sender,
-    receiver,
-    asset,
-    amount,
-    balance_secret,
-    xfer_secret,
-    old_balance,
-  }: {
-    sender: algosdk.Address;
-    receiver: algosdk.Address;
-    asset: bigint;
-    amount: bigint;
-    balance_secret: bigint;
-    xfer_secret: bigint;
-    old_balance: bigint;
-  }) {
-    const group = this.appClient.newGroup();
-
-    const inputs = {
-      sender_addr: addressInScalarField(sender.publicKey),
-      receiver_addr: [addressInScalarField(receiver.publicKey)],
-      asset,
-      xfer_amt: [amount],
-      xfer_secret: [xfer_secret],
-      old_balance,
-      new_balance: old_balance - 5n,
-      balance_secret: balance_secret,
-    };
-
-    await this.transferVerifier.verificationParams({
-      composer: group,
-      inputs,
-      paramsCallback: async (params) => {
-        const { lsigParams, lsigsFee, args } = params;
-
-        const verifierTxn = this.algorand.createTransaction.payment({
-          ...lsigParams,
-          receiver: lsigParams.sender,
-          amount: microAlgos(0),
-        });
-
-        if (asset === 0n) {
-          group.transfer({
-            sender,
-            args: {
-              verifierTxn,
-              signals: args.signals,
-              _proof: args.proof,
-              receiver: receiver.toString(),
-            },
-            extraFee: microAlgos(lsigsFee.microAlgos),
-          });
-        } else {
-          throw Error("ASAs not yet supported");
-        }
-      },
-    });
-
-    return {
-      group,
-      inputs,
-    };
-  }
-
-  async verifyBalance(opts: {
-    account: algosdk.Address;
-    asset?: bigint;
-    amount: bigint;
-    secret: bigint;
-  }) {
-    const { account, asset, amount, secret } = opts;
-    const balanceBox = await this.appClient.state.box.balances.value({
-      addr: account.toString(),
-      asset: asset ?? 0n,
-    });
-
-    return (
-      balanceBox ===
-      calculateCommitment({
-        claimer: addressInScalarField(account.publicKey),
-        asset: asset ?? 0n,
-        amount,
-        secret,
-      })
-    );
   }
 }
