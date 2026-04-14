@@ -11,10 +11,9 @@ import {
   assert,
   uint64,
   biguint,
-  op,
 } from "@algorandfoundation/algorand-typescript";
 import { Uint256 } from "@algorandfoundation/algorand-typescript/arc4";
-import { bzero, sha256 } from "@algorandfoundation/algorand-typescript/op";
+import { Global, sha256 } from "@algorandfoundation/algorand-typescript/op";
 
 /** BLS12-381 scalar field modulus (Fr), 32-byte big-endian */
 export const BLS12_381_SCALAR_MODULUS = BigUint(
@@ -51,13 +50,10 @@ export type PlonkProof = {
  * The receiver and asset are first so they can be used as part of the prefix in a query to algod
  */
 export type UtxoKey = {
-  /** SHA256(receiver || asset).slice(0, 31) */
-  receiverAssetHash: bytes<31>;
-  /** Ephemeral key pair used for the key exchange to generate the UTXO blinding secret */
-  ephemeralKey: bytes<32>;
+  /** SHA256(receiver || asset) */
+  receiverAssetHash: bytes<32>;
+  utxo: Uint256;
 };
-
-export type UtxoCommitment = Uint256;
 
 function u64IsSignal(u64: uint64, signal: Uint256): boolean {
   return signal.asBigUint() === BigUint(u64);
@@ -71,12 +67,20 @@ function addrInField(addr: Account): biguint {
   return BigUint(addr.bytes) % BLS12_381_SCALAR_MODULUS;
 }
 
+function utxoKey(addr: Uint256, asset: Uint256, utxo: Uint256): UtxoKey {
+  return {
+    receiverAssetHash: sha256(addr.bytes.concat(asset.bytes)),
+    utxo,
+  };
+}
+
 export class Velare extends Contract {
   depositVerifier = GlobalState<Account>({ key: "d" });
 
   spendVerifier = GlobalState<Account>({ key: "s" });
 
-  utxoMap = BoxMap<UtxoKey, UtxoCommitment>({ keyPrefix: "m" });
+  /** Map of utxo information to the ephemeral key used for the ECDH blinding secret */
+  utxo = BoxMap<UtxoKey, bytes<32>>({ keyPrefix: "" });
 
   createApplication(depositVerifier: Account, spendVerifier: Account) {
     this.depositVerifier.value = depositVerifier;
@@ -97,22 +101,50 @@ export class Velare extends Contract {
 
     const [amount, output, asset, receiver] = signals;
 
-    assert(
-      amount.asBigUint() <= BigUint(depositTxn.amount),
-      "UTXO amount should be less than or equal to deposit amount",
-    );
     assert(u64IsSignal(0, asset), "UTXO asset should be 0 for ALGO deposit");
     assert(
       addrIsSignal(Txn.sender, receiver),
       "UTXO receiver should be the depositor",
     );
 
-    const utxoKey: UtxoKey = {
-      receiverAssetHash: sha256(receiver.bytes.concat(op.itob(0)))
-        .slice(0, 31)
-        .toFixed({ length: 31 }),
-      ephemeralKey,
-    };
-    this.utxoMap(utxoKey).value = output;
+    const preMbr: uint64 = Global.currentApplicationAddress.minBalance;
+    this.utxo(utxoKey(receiver, asset, output)).value = ephemeralKey;
+    const boxMbr: uint64 = Global.currentApplicationAddress.minBalance - preMbr;
+
+    assert(
+      amount.asBigUint() <= BigUint(depositTxn.amount + boxMbr),
+      "UTXO amount should be less than or equal to deposit amount + boxMbr",
+    );
+  }
+
+  spend(
+    signals: Uint256[],
+    _proof: PlonkProof,
+    verifierTxn: gtxn.Transaction,
+    ephemeralKeys: bytes<32>[],
+  ) {
+    assert(
+      verifierTxn.sender === this.spendVerifier.value,
+      "invalid verifier txn",
+    );
+
+    const [in0, in1, out0, out1, spender, asset, receivers0, receivers1] =
+      signals;
+
+    assert(
+      addrIsSignal(Txn.sender, spender),
+      "UTXO spender should match txn sender",
+    );
+
+    const inKey0 = utxoKey(spender, asset, in0);
+    const inKey1 = utxoKey(spender, asset, in1);
+    const outKey0 = utxoKey(receivers0, asset, out0);
+    const outKey1 = utxoKey(receivers1, asset, out1);
+
+    assert(this.utxo(inKey0).exists);
+    assert(this.utxo(inKey1).exists);
+
+    this.utxo(outKey0).value = ephemeralKeys[0];
+    this.utxo(outKey1).value = ephemeralKeys[1];
   }
 }
