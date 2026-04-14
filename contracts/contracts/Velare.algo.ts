@@ -8,13 +8,10 @@ import {
   GlobalState,
   gtxn,
   Txn,
-  uint64,
   assert,
-  Global,
-  Uint64,
-  log,
 } from "@algorandfoundation/algorand-typescript";
 import { Uint256 } from "@algorandfoundation/algorand-typescript/arc4";
+import { sha256 } from "@algorandfoundation/algorand-typescript/op";
 
 /** BLS12-381 scalar field modulus (Fr), 32-byte big-endian */
 export const BLS12_381_SCALAR_MODULUS = BigUint(
@@ -46,63 +43,29 @@ export type PlonkProof = {
   eval_zw: Uint256;
 };
 
-export type BalanceKey = {
-  asset: uint64;
-  addr: Account;
+/**
+ * Key used for storing UTXOs. It should be noted that the ordering is important here.
+ * The receiver and asset are first so they can be used as part of the prefix in a query to algod
+ */
+export type UtxoKey = {
+  /** SHA256(receiver || asset) */
+  receiverAssetHash: bytes<32>;
+  /** Ephemeral key pair used for the key exchange to generate the UTXO blinding secret */
+  ephemeralKeypair: bytes<32>;
 };
+
+export type UtxoCommitment = Uint256;
 
 export class Velare extends Contract {
   depositVerifier = GlobalState<Account>({ key: "d" });
 
   transferVerifier = GlobalState<Account>({ key: "t" });
 
-  balances = BoxMap<BalanceKey, Uint256>({ keyPrefix: "b" });
-
-  // TODO: Add a uint64 index to the key so we don't have a cap
-  pendingTransfers = BoxMap<BalanceKey, Uint256[]>({ keyPrefix: "p" });
+  utxos = BoxMap<UtxoKey, UtxoCommitment>({ keyPrefix: "" });
 
   createApplication(depositVerifier: Account, transferVerifier: Account) {
     this.depositVerifier.value = depositVerifier;
     this.transferVerifier.value = transferVerifier;
-  }
-
-  initializeAlgoBalance(
-    signals: Uint256[],
-    _proof: PlonkProof,
-    verifierTxn: gtxn.Transaction,
-    depositTxn: gtxn.PaymentTxn,
-  ) {
-    const balanceKey = { addr: Txn.sender, asset: Uint64(0) };
-
-    assert(!this.balances(balanceKey).exists, "balance already exists");
-    assert(
-      verifierTxn.sender === this.depositVerifier.value,
-      "invalid verification txn",
-    );
-
-    const [commitment, addr, asset, amount] = signals;
-
-    assert(asset.asBigUint() === BigUint(0), "asset must be ALGO");
-
-    const preMbr = Global.currentApplicationAddress.minBalance;
-    this.balances(balanceKey).value = commitment;
-    const balanceMbr: uint64 =
-      Global.currentApplicationAddress.minBalance - preMbr;
-
-    assert(
-      BigUint(Txn.sender.bytes) % BLS12_381_SCALAR_MODULUS === addr.asBigUint(),
-      "address does not match sender",
-    );
-
-    assert(
-      amount.asBigUint() === BigUint(depositTxn.amount - balanceMbr),
-      "commitment amount does not match deposit amount (minus min balance)",
-    );
-
-    assert(
-      depositTxn.receiver === Global.currentApplicationAddress,
-      "deposit must go to app address",
-    );
   }
 
   transfer(
@@ -125,7 +88,13 @@ export class Velare extends Contract {
       asset,
     ] = signals;
 
-    const receiverKey = { addr: receiver, asset: asset.asUint64() };
+    const transferKey: UtxoKey = {
+      sender: Txn.sender,
+      receiverAssetHash: sha256(receiver.bytes.concat(asset.bytes))
+        .slice(16)
+        .toFixed({ length: 16 }),
+      nonce: Txn.txId.slice(15).toFixed({ length: 15 }),
+    };
     const senderKey = { addr: Txn.sender, asset: asset.asUint64() };
 
     assert(
@@ -147,9 +116,9 @@ export class Velare extends Contract {
 
     this.balances(senderKey).value = newBalanceCommitment;
 
-    if (!this.pendingTransfers(receiverKey).exists) {
-      this.pendingTransfers(receiverKey).create({ size: 2_000 });
+    if (!this.pendingTransfers(transferKey).exists) {
+      this.pendingTransfers(transferKey).create({ size: 2_000 });
     }
-    this.pendingTransfers(receiverKey).value.push(xferCommitment);
+    this.pendingTransfers(transferKey).value.push(xferCommitment);
   }
 }
