@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsx scripts/compile.ts"
+    "build": "tsx scripts/compile.ts",
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",

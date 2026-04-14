@@ -94,5 +94,3 @@ template Spend(IN, OUT) {
     }
 }
 
-component main {public [spender, asset, receivers]}  = Spend(2, 2);
-

@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const CIRCUITS_DIR = join(__dirname, "..");
-const CIRCUITS = ["spend", "deposit"] as const;
+const CIRCUITS = ["spend_2_2", "deposit_1"] as const;
 
 execSync("bash ./setup/setup.sh", {
   cwd: CIRCUITS_DIR,

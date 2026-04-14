@@ -3,8 +3,8 @@ import { beforeAll, describe, it } from "vitest";
 import { join } from "path";
 import { calculateCommitment } from "../src";
 
-const DEPOSIT_PATH = join(__dirname, "..", "circom", "deposit.circom");
-const SPEND_PATH = join(__dirname, "..", "circom", "spend.circom");
+const DEPOSIT_PATH = join(__dirname, "..", "circom", "deposit_1.circom");
+const SPEND_PATH = join(__dirname, "..", "circom", "spend_2_2.circom");
 
 describe("deposit and spend integration", () => {
   let depositCircuit: any;

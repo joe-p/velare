@@ -73,6 +73,3 @@ template Deposit(OUT) {
         outputs[i] <== out_utxo[i].commitment;
     }
 }
-
-component main {public [asset, receivers]}  = Deposit(1);
-

@@ -3,7 +3,7 @@ import { beforeAll, describe, it } from "vitest";
 import { join } from "path";
 import { calculateCommitment } from "../src";
 
-const SPEND_PATH = join(__dirname, "..", "circom", "spend.circom");
+const SPEND_PATH = join(__dirname, "..", "circom", "spend_2_2.circom");
 
 describe("spend", () => {
   let spendCircuit: any;
