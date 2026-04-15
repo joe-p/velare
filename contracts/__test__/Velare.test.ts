@@ -15,7 +15,12 @@ describe("Velare", async () => {
   });
 
   it("should handle deposit", async () => {
-    const { group } = await client.composeDepositGroup(sender, 0n, 5n, 1337n);
+    const { group } = await client.composeDepositGroup(
+      sender,
+      0n,
+      5n,
+      new Uint8Array(32),
+    );
     await group.send();
 
     // TODO: state assertions

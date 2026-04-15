@@ -1,3 +1,4 @@
+import { Uint } from "@algorandfoundation/algorand-typescript/arc4";
 import {
   VelareClient as GeneratedClient,
   VelareFactory as GeneratedFactory,
@@ -105,6 +106,7 @@ export class VelareClient {
     sender: algosdk.Address,
     asset: bigint,
     amount: bigint,
+    ephemeralKey: Uint8Array,
   ) {
     const group = this.appClient.newGroup();
 
@@ -139,7 +141,7 @@ export class VelareClient {
                 receiver: this.appClient.appAddress,
                 amount: microAlgos(amount + UTXO_MBR),
               }),
-              ephemeralKey: new Uint8Array(32), // TODO: use real key
+              ephemeralKey,
             },
             extraFee: microAlgos(lsigsFee.microAlgos),
           });
