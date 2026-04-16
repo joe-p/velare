@@ -63,7 +63,10 @@ export function spendVerifier(algorand: AlgorandClient): PlonkLsigVerifier {
 }
 
 function ecdh(keys: { private: Uint8Array; public: Uint8Array }) {
-  return bytesToNumberBE(x25519.getSharedSecret(keys.public, keys.private));
+  return (
+    bytesToNumberBE(x25519.getSharedSecret(keys.public, keys.private)) %
+    BLS12_381_SCALAR_MODULUS
+  );
 }
 
 export class VelareClient {
