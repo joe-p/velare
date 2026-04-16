@@ -11,6 +11,7 @@ import {
   assert,
   uint64,
   biguint,
+  clone,
 } from "@algorandfoundation/algorand-typescript";
 import { Uint256 } from "@algorandfoundation/algorand-typescript/arc4";
 import { Global, sha256 } from "@algorandfoundation/algorand-typescript/op";
@@ -50,9 +51,14 @@ export type PlonkProof = {
  * The receiver and asset are first so they can be used as part of the prefix in a query to algod
  */
 export type UtxoKey = {
-  /** SHA256(receiver || asset) */
-  receiverAssetHash: bytes<32>;
+  /** SHA256(receiver || asset).slice(0, 31) */
+  receiverAssetHash: bytes<31>;
   utxo: Uint256;
+};
+
+export type EcdhKeys = {
+  ephemeralKey: bytes<32>;
+  viewKey: bytes<32>;
 };
 
 function u64IsSignal(u64: uint64, signal: Uint256): boolean {
@@ -69,7 +75,9 @@ function addrInField(addr: Account): biguint {
 
 function utxoKey(addr: Uint256, asset: Uint256, utxo: Uint256): UtxoKey {
   return {
-    receiverAssetHash: sha256(addr.bytes.concat(asset.bytes)),
+    receiverAssetHash: sha256(addr.bytes.concat(asset.bytes))
+      .slice(0, 31)
+      .toFixed({ length: 31 }),
     utxo,
   };
 }
@@ -80,7 +88,9 @@ export class Velare extends Contract {
   spendVerifier = GlobalState<Account>({ key: "s" });
 
   /** Map of utxo information to the ephemeral key used for the ECDH blinding secret */
-  utxo = BoxMap<UtxoKey, bytes<32>>({ keyPrefix: "" });
+  utxo = BoxMap<UtxoKey, EcdhKeys>({ keyPrefix: "u" });
+
+  viewKey = BoxMap<Account, bytes<32>>({ keyPrefix: "v" });
 
   createApplication(depositVerifier: Account, spendVerifier: Account) {
     this.depositVerifier.value = depositVerifier;
@@ -93,6 +103,7 @@ export class Velare extends Contract {
     verifierTxn: gtxn.Transaction,
     depositTxn: gtxn.PaymentTxn,
     ephemeralKey: bytes<32>,
+    viewKey: bytes<32>,
   ) {
     assert(
       verifierTxn.sender === this.depositVerifier.value,
@@ -108,7 +119,12 @@ export class Velare extends Contract {
     );
 
     const preMbr: uint64 = Global.currentApplicationAddress.minBalance;
-    this.utxo(utxoKey(receiver, asset, output)).value = ephemeralKey;
+    this.utxo(utxoKey(receiver, asset, output)).value = {
+      ephemeralKey,
+      viewKey,
+    };
+    this.viewKey(Txn.sender).value = viewKey;
+
     const boxMbr: uint64 = Global.currentApplicationAddress.minBalance - preMbr;
 
     assert(
@@ -121,7 +137,7 @@ export class Velare extends Contract {
     signals: Uint256[],
     _proof: PlonkProof,
     verifierTxn: gtxn.Transaction,
-    ephemeralKeys: bytes<32>[],
+    keys: EcdhKeys[],
   ) {
     assert(
       verifierTxn.sender === this.spendVerifier.value,
@@ -144,7 +160,7 @@ export class Velare extends Contract {
     assert(this.utxo(inKey0).exists);
     assert(this.utxo(inKey1).exists);
 
-    this.utxo(outKey0).value = ephemeralKeys[0];
-    this.utxo(outKey1).value = ephemeralKeys[1];
+    this.utxo(outKey0).value = clone(keys[0]);
+    this.utxo(outKey1).value = clone(keys[1]);
   }
 }

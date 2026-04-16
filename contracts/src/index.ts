@@ -1,4 +1,3 @@
-import { Uint } from "@algorandfoundation/algorand-typescript/arc4";
 import {
   VelareClient as GeneratedClient,
   VelareFactory as GeneratedFactory,
@@ -7,8 +6,10 @@ import { AlgorandClient, microAlgos } from "@algorandfoundation/algokit-utils";
 import algosdk from "algosdk";
 import path from "node:path";
 import { PlonkLsigVerifier } from "snarkjs-algorand";
+import { x25519 } from "@noble/curves/ed25519.js";
+import { bytesToNumberBE } from "@noble/curves/utils.js";
 
-const UTXO_MBR = 40_900n;
+const UTXO_MBR = 82_200n;
 
 const BLS12_381_SCALAR_MODULUS = BigInt(
   "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
@@ -61,6 +62,10 @@ export function spendVerifier(algorand: AlgorandClient): PlonkLsigVerifier {
   });
 }
 
+function ecdh(keys: { private: Uint8Array; public: Uint8Array }) {
+  return bytesToNumberBE(x25519.getSharedSecret(keys.public, keys.private));
+}
+
 export class VelareClient {
   appClient: GeneratedClient;
   algorand: AlgorandClient;
@@ -106,15 +111,19 @@ export class VelareClient {
     sender: algosdk.Address,
     asset: bigint,
     amount: bigint,
-    ephemeralKey: Uint8Array,
+    viewPublic: Uint8Array,
   ) {
     const group = this.appClient.newGroup();
+
+    const ephemeralKey = x25519.keygen();
 
     const inputs = {
       asset,
       receivers: [addressInScalarField(sender.publicKey)],
       out_amounts: [amount],
-      out_secrets: [1337n], // TODO: use real secret from ECDH
+      out_secrets: [
+        ecdh({ public: viewPublic, private: ephemeralKey.secretKey }),
+      ],
     };
 
     await this.depositVerifier.verificationParams({
@@ -141,7 +150,8 @@ export class VelareClient {
                 receiver: this.appClient.appAddress,
                 amount: microAlgos(amount + UTXO_MBR),
               }),
-              ephemeralKey,
+              ephemeralKey: ephemeralKey.publicKey,
+              viewKey: viewPublic,
             },
             extraFee: microAlgos(lsigsFee.microAlgos),
           });

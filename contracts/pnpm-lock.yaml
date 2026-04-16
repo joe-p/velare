@@ -11,6 +11,9 @@ importers:
       '@algorandfoundation/algokit-utils':
         specifier: ^9.0.0
         version: 9.2.0(algosdk@3.5.2)
+      '@noble/curves':
+        specifier: ^2.2.0
+        version: 2.2.0
       algosdk:
         specifier: ^3.5.2
         version: 3.5.2

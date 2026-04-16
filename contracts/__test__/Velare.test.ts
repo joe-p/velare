@@ -2,10 +2,12 @@ import { describe, it, beforeEach } from "vitest";
 import { VelareClient } from "../src";
 import { AlgorandClient } from "@algorandfoundation/algokit-utils";
 import algosdk from "algosdk";
+import { x25519 } from "@noble/curves/ed25519.js";
 
 describe("Velare", async () => {
   let algorand: AlgorandClient;
   let sender: algosdk.Address;
+  let senderViewkey = x25519.keygen();
   let client: VelareClient;
 
   beforeEach(async () => {
@@ -19,7 +21,7 @@ describe("Velare", async () => {
       sender,
       0n,
       5n,
-      new Uint8Array(32),
+      senderViewkey.publicKey,
     );
     await group.send();
 
