@@ -11,6 +11,7 @@ import {
   assert,
   uint64,
   clone,
+  itxn,
 } from "@algorandfoundation/algorand-typescript";
 import { Uint256 } from "@algorandfoundation/algorand-typescript/arc4";
 import { Global, sha256 } from "@algorandfoundation/algorand-typescript/op";
@@ -142,6 +143,16 @@ export class Velare extends Contract {
     );
   }
 
+  private _deleteUtxos(utxoKeys: UtxoKey[]) {
+    const preMbr = Global.currentApplicationAddress.minBalance;
+    for (const utxoKey of clone(utxoKeys)) {
+      this.utxo(utxoKey).delete();
+    }
+    const postMbr: uint64 = Global.currentApplicationAddress.minBalance;
+
+    itxn.payment({ receiver: Txn.sender, amount: preMbr - postMbr }).submit();
+  }
+
   spend(
     signals: Uint256[],
     _proof: PlonkProof,
@@ -174,5 +185,7 @@ export class Velare extends Contract {
 
     this.utxo(outKey0).value = clone(hpkeData[0]);
     this.utxo(outKey1).value = clone(hpkeData[1]);
+
+    this._deleteUtxos([inKey0, inKey1]);
   }
 }
