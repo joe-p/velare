@@ -14,7 +14,11 @@ import {
   itxn,
 } from "@algorandfoundation/algorand-typescript";
 import { Uint256 } from "@algorandfoundation/algorand-typescript/arc4";
-import { Global, sha256 } from "@algorandfoundation/algorand-typescript/op";
+import {
+  exp,
+  Global,
+  sha256,
+} from "@algorandfoundation/algorand-typescript/op";
 
 /** BLS12-381 scalar field modulus (Fr), 32-byte big-endian */
 export const BLS12_381_SCALAR_MODULUS = BigUint(
@@ -105,6 +109,10 @@ export class Velare extends Contract {
   /** Map of UTXO information to the HPKE data */
   utxo = BoxMap<UtxoKey, HpkeData>({ keyPrefix: "u" });
 
+  addressInfo = BoxMap<VelareAddress, ExpandedVelareAddress>({
+    keyPrefix: "a",
+  });
+
   createApplication(depositVerifier: Account, spendVerifier: Account) {
     this.depositVerifier.value = depositVerifier;
     this.spendVerifier.value = spendVerifier;
@@ -127,14 +135,17 @@ export class Velare extends Contract {
     const [amount, output, asset, receiver] = signals;
 
     assert(u64IsSignal(0, asset), "UTXO asset should be 0 for ALGO deposit");
-    assert(
-      velareAddress({ spendAddress: Txn.sender, hpkeSuite, viewKey }) ===
-        receiver,
-      "UTXO receiver should be the depositor",
-    );
+    const expandedVelareAddr = {
+      spendAddress: Txn.sender,
+      hpkeSuite,
+      viewKey,
+    };
+    const velareAddr = velareAddress(expandedVelareAddr);
+    assert(velareAddr === receiver, "UTXO receiver should be the depositor");
 
     const preMbr: uint64 = Global.currentApplicationAddress.minBalance;
     this.utxo(utxoKey(receiver, asset, output)).value = clone(hpkeData);
+    this.addressInfo(receiver).value = clone(expandedVelareAddr);
     const boxMbr: uint64 = Global.currentApplicationAddress.minBalance - preMbr;
 
     assert(

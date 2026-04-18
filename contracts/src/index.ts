@@ -10,12 +10,13 @@ import { CipherSuite, KemId, KdfId, AeadId } from "hpke-js";
 import { sha256 } from "@noble/hashes/sha2.js";
 
 const UTXO_MBR = 63_300n;
+const ADDR_MBR = 45_300n;
 
 const BLS12_381_SCALAR_MODULUS = BigInt(
   "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
 );
 
-const DEFAULT_SUITE = new CipherSuite({
+export const DEFAULT_HPKE_SUITE = new CipherSuite({
   kem: KemId.DhkemX25519HkdfSha256,
   kdf: KdfId.HkdfSha512,
   aead: AeadId.Chacha20Poly1305,
@@ -144,19 +145,19 @@ export class VelareClient {
 
     const secret = crypto.getRandomValues(new Uint8Array(32));
 
-    const hpkeSuite = getHpkeSuiteId(DEFAULT_SUITE);
+    const hpkeSuite = getHpkeSuiteId(DEFAULT_HPKE_SUITE);
 
-    const { enc, ct } = await DEFAULT_SUITE.seal(
+    const { enc, ct } = await DEFAULT_HPKE_SUITE.seal(
       {
         recipientPublicKey:
-          await DEFAULT_SUITE.kem.deserializePublicKey(viewPublic),
+          await DEFAULT_HPKE_SUITE.kem.deserializePublicKey(viewPublic),
       },
       secret,
     );
 
     const inputs = {
       asset,
-      receivers: [computeVelareAddress(sender, DEFAULT_SUITE, viewPublic)],
+      receivers: [computeVelareAddress(sender, DEFAULT_HPKE_SUITE, viewPublic)],
       out_amounts: [amount],
       out_secrets: [
         BigInt("0x" + Buffer.from(secret).toString("hex")) %
@@ -186,7 +187,7 @@ export class VelareClient {
               depositTxn: this.algorand.createTransaction.payment({
                 sender,
                 receiver: this.appClient.appAddress,
-                amount: microAlgos(amount + UTXO_MBR),
+                amount: microAlgos(amount + UTXO_MBR + ADDR_MBR),
               }),
               hpkeData: {
                 encapsulatedKey: new Uint8Array(enc),
@@ -206,6 +207,8 @@ export class VelareClient {
     return {
       group,
       inputs,
+      enc: new Uint8Array(enc),
+      ct: new Uint8Array(ct),
     };
   }
 }
