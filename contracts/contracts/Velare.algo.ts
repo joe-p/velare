@@ -10,7 +10,6 @@ import {
   Txn,
   assert,
   uint64,
-  biguint,
   clone,
 } from "@algorandfoundation/algorand-typescript";
 import { Uint256 } from "@algorandfoundation/algorand-typescript/arc4";
@@ -51,29 +50,36 @@ export type PlonkProof = {
  * The receiver and asset are first so they can be used as part of the prefix in a query to algod
  */
 export type UtxoKey = {
-  /** SHA256(receiver || asset).slice(0, 31) */
+  /** SHA256(VelareAddress || asset).slice(0, 31) */
   receiverAssetHash: bytes<31>;
   utxo: Uint256;
 };
 
-export type EcdhKeys = {
-  ephemeralKey: bytes<32>;
-  viewKey: bytes<32>;
+/** SHA256(spendAddress || hpkeSuite || viewKey) % BLS12_381_SCALAR_MODULUS */
+export type VelareAddress = Uint256;
+
+export type ExpandedVelareAddress = {
+  /** The Algorand address that has spend authority over the UTXOs */
+  spendAddress: Account;
+  /**
+   * Identifier for KEM, KDF, and AEAD algorithms used for HPKE.
+   * See RFC 9180 Section 7: https://www.rfc-editor.org/rfc/rfc9180.html#section-7
+   */
+  hpkeSuite: bytes<6>;
+  /** The key used for the HPKE KEM */
+  viewKey: bytes;
+};
+
+export type HpkeData = {
+  encapsulatedKey: bytes;
+  ciphertext: bytes;
 };
 
 function u64IsSignal(u64: uint64, signal: Uint256): boolean {
   return signal.asBigUint() === BigUint(u64);
 }
 
-function addrIsSignal(addr: Account, signal: Uint256): boolean {
-  return addrInField(addr) === signal.asBigUint();
-}
-
-function addrInField(addr: Account): biguint {
-  return BigUint(addr.bytes) % BLS12_381_SCALAR_MODULUS;
-}
-
-function utxoKey(addr: Uint256, asset: Uint256, utxo: Uint256): UtxoKey {
+function utxoKey(addr: VelareAddress, asset: Uint256, utxo: Uint256): UtxoKey {
   return {
     receiverAssetHash: sha256(addr.bytes.concat(asset.bytes))
       .slice(0, 31)
@@ -82,15 +88,21 @@ function utxoKey(addr: Uint256, asset: Uint256, utxo: Uint256): UtxoKey {
   };
 }
 
+function velareAddress(expandedAddr: ExpandedVelareAddress) {
+  const { spendAddress, hpkeSuite, viewKey } = expandedAddr;
+  return new Uint256(
+    BigUint(sha256(spendAddress.bytes.concat(hpkeSuite).concat(viewKey))) %
+      BLS12_381_SCALAR_MODULUS,
+  );
+}
+
 export class Velare extends Contract {
   depositVerifier = GlobalState<Account>({ key: "d" });
 
   spendVerifier = GlobalState<Account>({ key: "s" });
 
-  /** Map of utxo information to the ephemeral key used for the ECDH blinding secret */
-  utxo = BoxMap<UtxoKey, EcdhKeys>({ keyPrefix: "u" });
-
-  viewKey = BoxMap<Account, bytes<32>>({ keyPrefix: "v" });
+  /** Map of UTXO information to the HPKE data */
+  utxo = BoxMap<UtxoKey, HpkeData>({ keyPrefix: "u" });
 
   createApplication(depositVerifier: Account, spendVerifier: Account) {
     this.depositVerifier.value = depositVerifier;
@@ -102,8 +114,9 @@ export class Velare extends Contract {
     _proof: PlonkProof,
     verifierTxn: gtxn.Transaction,
     depositTxn: gtxn.PaymentTxn,
-    ephemeralKey: bytes<32>,
-    viewKey: bytes<32>,
+    hpkeData: HpkeData,
+    hpkeSuite: bytes<6>,
+    viewKey: bytes,
   ) {
     assert(
       verifierTxn.sender === this.depositVerifier.value,
@@ -114,17 +127,13 @@ export class Velare extends Contract {
 
     assert(u64IsSignal(0, asset), "UTXO asset should be 0 for ALGO deposit");
     assert(
-      addrIsSignal(Txn.sender, receiver),
+      velareAddress({ spendAddress: Txn.sender, hpkeSuite, viewKey }) ===
+        receiver,
       "UTXO receiver should be the depositor",
     );
 
     const preMbr: uint64 = Global.currentApplicationAddress.minBalance;
-    this.utxo(utxoKey(receiver, asset, output)).value = {
-      ephemeralKey,
-      viewKey,
-    };
-    this.viewKey(Txn.sender).value = viewKey;
-
+    this.utxo(utxoKey(receiver, asset, output)).value = clone(hpkeData);
     const boxMbr: uint64 = Global.currentApplicationAddress.minBalance - preMbr;
 
     assert(
@@ -137,7 +146,9 @@ export class Velare extends Contract {
     signals: Uint256[],
     _proof: PlonkProof,
     verifierTxn: gtxn.Transaction,
-    keys: EcdhKeys[],
+    hpkeData: HpkeData[],
+    hpkeSuite: bytes<6>,
+    viewKey: bytes,
   ) {
     assert(
       verifierTxn.sender === this.spendVerifier.value,
@@ -148,8 +159,9 @@ export class Velare extends Contract {
       signals;
 
     assert(
-      addrIsSignal(Txn.sender, spender),
-      "UTXO spender should match txn sender",
+      velareAddress({ spendAddress: Txn.sender, hpkeSuite, viewKey }) ===
+        spender,
+      "UTXO receiver should be the depositor",
     );
 
     const inKey0 = utxoKey(spender, asset, in0);
@@ -160,7 +172,7 @@ export class Velare extends Contract {
     assert(this.utxo(inKey0).exists);
     assert(this.utxo(inKey1).exists);
 
-    this.utxo(outKey0).value = clone(keys[0]);
-    this.utxo(outKey1).value = clone(keys[1]);
+    this.utxo(outKey0).value = clone(hpkeData[0]);
+    this.utxo(outKey1).value = clone(hpkeData[1]);
   }
 }

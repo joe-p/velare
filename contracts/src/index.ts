@@ -6,17 +6,48 @@ import { AlgorandClient, microAlgos } from "@algorandfoundation/algokit-utils";
 import algosdk from "algosdk";
 import path from "node:path";
 import { PlonkLsigVerifier } from "snarkjs-algorand";
-import { x25519 } from "@noble/curves/ed25519.js";
-import { bytesToNumberBE } from "@noble/curves/utils.js";
+import { CipherSuite, KemId, KdfId, AeadId } from "hpke-js";
+import { sha256 } from "@noble/hashes/sha2.js";
 
-const UTXO_MBR = 82_200n;
+const UTXO_MBR = 63_300n;
 
 const BLS12_381_SCALAR_MODULUS = BigInt(
   "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
 );
 
+const DEFAULT_SUITE = new CipherSuite({
+  kem: KemId.DhkemX25519HkdfSha256,
+  kdf: KdfId.HkdfSha512,
+  aead: AeadId.Chacha20Poly1305,
+});
+
+export function getHpkeSuiteId(suite: CipherSuite): Uint8Array {
+  const id = new Uint8Array(6);
+  const view = new DataView(id.buffer);
+  view.setUint16(0, suite.kem.id, false); // big-endian
+  view.setUint16(2, suite.kdf.id, false); // big-endian
+  view.setUint16(4, suite.aead.id, false); // big-endian
+  return id;
+}
+
 export function addressInScalarField(addr: Uint8Array): bigint {
   const asBigint = BigInt("0x" + Buffer.from(addr).toString("hex"));
+  return asBigint % BLS12_381_SCALAR_MODULUS;
+}
+
+export function computeVelareAddress(
+  spendAddress: algosdk.Address,
+  suite: CipherSuite,
+  viewKey: Uint8Array,
+): bigint {
+  const hpkeSuiteId = getHpkeSuiteId(suite);
+  const data = new Uint8Array([
+    ...spendAddress.publicKey,
+    ...hpkeSuiteId,
+    ...viewKey,
+  ]);
+  const hash = sha256(data);
+  const asBigint = BigInt("0x" + Buffer.from(hash).toString("hex"));
   return asBigint % BLS12_381_SCALAR_MODULUS;
 }
 
@@ -60,13 +91,6 @@ export function spendVerifier(algorand: AlgorandClient): PlonkLsigVerifier {
     totalLsigs: 13,
     appOffset: 1,
   });
-}
-
-function ecdh(keys: { private: Uint8Array; public: Uint8Array }) {
-  return (
-    bytesToNumberBE(x25519.getSharedSecret(keys.public, keys.private)) %
-    BLS12_381_SCALAR_MODULUS
-  );
 }
 
 export class VelareClient {
@@ -118,14 +142,25 @@ export class VelareClient {
   ) {
     const group = this.appClient.newGroup();
 
-    const ephemeralKey = x25519.keygen();
+    const secret = crypto.getRandomValues(new Uint8Array(32));
+
+    const hpkeSuite = getHpkeSuiteId(DEFAULT_SUITE);
+
+    const { enc, ct } = await DEFAULT_SUITE.seal(
+      {
+        recipientPublicKey:
+          await DEFAULT_SUITE.kem.deserializePublicKey(viewPublic),
+      },
+      secret,
+    );
 
     const inputs = {
       asset,
-      receivers: [addressInScalarField(sender.publicKey)],
+      receivers: [computeVelareAddress(sender, DEFAULT_SUITE, viewPublic)],
       out_amounts: [amount],
       out_secrets: [
-        ecdh({ public: viewPublic, private: ephemeralKey.secretKey }),
+        BigInt("0x" + Buffer.from(secret).toString("hex")) %
+          BLS12_381_SCALAR_MODULUS,
       ],
     };
 
@@ -153,7 +188,11 @@ export class VelareClient {
                 receiver: this.appClient.appAddress,
                 amount: microAlgos(amount + UTXO_MBR),
               }),
-              ephemeralKey: ephemeralKey.publicKey,
+              hpkeData: {
+                encapsulatedKey: new Uint8Array(enc),
+                ciphertext: new Uint8Array(ct),
+              },
+              hpkeSuite,
               viewKey: viewPublic,
             },
             extraFee: microAlgos(lsigsFee.microAlgos),
