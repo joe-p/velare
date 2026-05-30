@@ -28,6 +28,6 @@
     "@noble/hashes": "^2.2.0",
     "algosdk": "^3.5.2",
     "hpke-js": "^1.8.0",
-    "snarkjs-algorand": "^0.11.0"
+    "snarkjs-algorand": "^0.12.0"
   }
 }

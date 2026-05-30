@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 import { execSync } from "child_process";
-import { mkdirSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
@@ -9,14 +9,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const CIRCUITS_DIR = join(__dirname, "..");
-const CIRCUITS = ["spend_2_2", "deposit_1"] as const;
+const CIRCUITS = ["spend_hashed_2_2", "deposit_1"] as const;
 
 execSync("bash ./setup/setup.sh", {
   cwd: CIRCUITS_DIR,
   stdio: "inherit",
 });
 
-mkdirSync("out/");
+if (!existsSync("out")) {
+  mkdirSync("out");
+}
 
 for (const circuit of CIRCUITS) {
   console.log(`\n=== Compiling ${circuit} circuit ===`);

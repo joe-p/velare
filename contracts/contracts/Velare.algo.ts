@@ -12,6 +12,7 @@ import {
   uint64,
   clone,
   itxn,
+  ensureBudget,
 } from "@algorandfoundation/algorand-typescript";
 import { Uint256 } from "@algorandfoundation/algorand-typescript/arc4";
 import {
@@ -165,20 +166,24 @@ export class Velare extends Contract {
   }
 
   spend(
-    signals: Uint256[],
+    _signals: Uint256[],
     _proof: PlonkProof,
+    signalValues: Uint256[],
     verifierTxn: gtxn.Transaction,
     hpkeData: HpkeData[],
     hpkeSuite: bytes<6>,
     viewKey: bytes,
   ) {
+    ensureBudget(1400);
     assert(
       verifierTxn.sender === this.spendVerifier.value,
       "invalid verifier txn",
     );
 
     const [in0, in1, out0, out1, spender, asset, receivers0, receivers1] =
-      signals;
+      signalValues;
+
+    // TODO: Ensure signalValues hash to signals[0] in an lsig
 
     assert(
       velareAddress({ spendAddress: Txn.sender, hpkeSuite, viewKey }) ===
