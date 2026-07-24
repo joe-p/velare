@@ -1,6 +1,7 @@
 #!/usr/bin/env tsx
 
 import { execSync } from "child_process";
+import { mkdirSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
@@ -14,6 +15,8 @@ execSync("bash ./setup/setup.sh", {
   cwd: CIRCUITS_DIR,
   stdio: "inherit",
 });
+
+mkdirSync("out/");
 
 for (const circuit of CIRCUITS) {
   console.log(`\n=== Compiling ${circuit} circuit ===`);
