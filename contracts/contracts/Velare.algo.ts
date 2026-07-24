@@ -12,6 +12,7 @@ import {
   uint64,
   clone,
   itxn,
+  ensureBudget,
 } from "@algorandfoundation/algorand-typescript";
 import { Uint256 } from "@algorandfoundation/algorand-typescript/arc4";
 import {
@@ -106,6 +107,8 @@ export class Velare extends Contract {
 
   spendVerifier = GlobalState<Account>({ key: "s" });
 
+  signalVerifier = GlobalState<Account>({ key: "S" });
+
   /** Map of UTXO information to the HPKE data */
   utxo = BoxMap<UtxoKey, HpkeData>({ keyPrefix: "u" });
 
@@ -113,9 +116,14 @@ export class Velare extends Contract {
     keyPrefix: "a",
   });
 
-  createApplication(depositVerifier: Account, spendVerifier: Account) {
+  createApplication(
+    depositVerifier: Account,
+    spendVerifier: Account,
+    signalVerifier: Account,
+  ) {
     this.depositVerifier.value = depositVerifier;
     this.spendVerifier.value = spendVerifier;
+    this.signalVerifier.value = signalVerifier;
   }
 
   depositAlgo(
@@ -165,20 +173,27 @@ export class Velare extends Contract {
   }
 
   spend(
-    signals: Uint256[],
+    _signals: Uint256[],
     _proof: PlonkProof,
+    signalValues: Uint256[],
+    signalVerifierTxn: gtxn.Transaction,
     verifierTxn: gtxn.Transaction,
     hpkeData: HpkeData[],
     hpkeSuite: bytes<6>,
     viewKey: bytes,
   ) {
+    ensureBudget(1400);
     assert(
       verifierTxn.sender === this.spendVerifier.value,
-      "invalid verifier txn",
+      "invalid zk verifier txn",
+    );
+    assert(
+      signalVerifierTxn.sender === this.signalVerifier.value,
+      "invalid signal verifier txn",
     );
 
     const [in0, in1, out0, out1, spender, asset, receivers0, receivers1] =
-      signals;
+      signalValues;
 
     assert(
       velareAddress({ spendAddress: Txn.sender, hpkeSuite, viewKey }) ===

@@ -3,11 +3,13 @@ import {
   VelareFactory as GeneratedFactory,
 } from "../contracts/clients/VelareClient";
 import { AlgorandClient, microAlgos } from "@algorandfoundation/algokit-utils";
-import algosdk from "algosdk";
-import path from "node:path";
+import algosdk, { LogicSigAccount } from "algosdk";
+import path, { join } from "node:path";
 import { PlonkLsigVerifier } from "snarkjs-algorand";
 import { CipherSuite, KemId, KdfId, AeadId } from "hpke-js";
 import { sha256 } from "@noble/hashes/sha2.js";
+import { calculateCommitment } from "../../circuits/src";
+import { readFileSync } from "node:fs";
 
 const UTXO_MBR = 63_300n;
 const ADDR_MBR = 45_300n;
@@ -78,18 +80,18 @@ export function spendVerifier(algorand: AlgorandClient): PlonkLsigVerifier {
 
   const zKey = path.join(
     thisFileDir.pathname,
-    "../../circuits/zkeys/spend_2_2.zkey",
+    "../../circuits/zkeys/spend_hashed_2_2.zkey",
   );
   const wasmProver = path.join(
     thisFileDir.pathname,
-    "../../circuits/out/spend_2_2_js/spend.wasm",
+    "../../circuits/out/spend_hashed_2_2_js/spend_hashed_2_2.wasm",
   );
 
   return new PlonkLsigVerifier({
     algorand,
     zKey,
     wasmProver,
-    totalLsigs: 13,
+    totalLsigs: 7,
     appOffset: 1,
   });
 }
@@ -99,6 +101,7 @@ export class VelareClient {
   algorand: AlgorandClient;
   depositVerifier: PlonkLsigVerifier;
   spendVerifier: PlonkLsigVerifier;
+  signalVerifier?: LogicSigAccount;
 
   constructor(algorand: AlgorandClient, appId: bigint) {
     this.appClient = algorand.client.getTypedAppClientById(GeneratedClient, {
@@ -123,6 +126,9 @@ export class VelareClient {
         spendVerifier: (
           await spendVerifier(algorand).lsigAccount()
         ).addr.toString(),
+        signalVerifier: (await this.signalVerifierLsig(algorand))
+          .address()
+          .toString(),
       },
     });
 
@@ -133,6 +139,21 @@ export class VelareClient {
     });
 
     return new VelareClient(algorand, result.appClient.appId);
+  }
+
+  static async signalVerifierLsig(algorand: AlgorandClient) {
+    const signalVerifierTeal = readFileSync(
+      join(__dirname, "../contracts/out/SignalVerifier.teal"),
+    );
+    const compiled = (
+      await algorand.client.algod.compile(signalVerifierTeal).do()
+    ).result;
+
+    const signalVerifier = algorand.account.logicsig(
+      Buffer.from(compiled, "base64"),
+    ).account;
+
+    return signalVerifier;
   }
 
   async composeDepositGroup(
@@ -155,15 +176,30 @@ export class VelareClient {
       secret,
     );
 
+    const secretBigint =
+      BigInt("0x" + Buffer.from(secret).toString("hex")) %
+      BLS12_381_SCALAR_MODULUS;
+
+    const receiver = computeVelareAddress(
+      sender,
+      DEFAULT_HPKE_SUITE,
+      viewPublic,
+    );
+
     const inputs = {
       asset,
-      receivers: [computeVelareAddress(sender, DEFAULT_HPKE_SUITE, viewPublic)],
+      receivers: [receiver],
       out_amounts: [amount],
-      out_secrets: [
-        BigInt("0x" + Buffer.from(secret).toString("hex")) %
-          BLS12_381_SCALAR_MODULUS,
-      ],
+      out_secrets: [secretBigint],
     };
+
+    // Calculate the output commitment
+    const outputCommitment = calculateCommitment({
+      claimer: receiver,
+      asset,
+      amount,
+      secret: secretBigint,
+    });
 
     await this.depositVerifier.verificationParams({
       composer: group,
@@ -207,8 +243,171 @@ export class VelareClient {
     return {
       group,
       inputs,
+      outputCommitment,
       enc: new Uint8Array(enc),
       ct: new Uint8Array(ct),
+    };
+  }
+
+  async composeSpendGroup(
+    sender: algosdk.Address,
+    asset: bigint,
+    inUtxos: Array<{
+      amount: bigint;
+      secret: bigint;
+      encapsulatedKey: Uint8Array;
+      ciphertext: Uint8Array;
+    }>,
+    outAmounts: bigint[],
+    outReceivers: bigint[],
+    viewPublic: Uint8Array,
+  ) {
+    const group = this.appClient.newGroup();
+
+    if (inUtxos.length !== 2) {
+      throw new Error("Only 2 input UTXOs are supported");
+    }
+    if (outAmounts.length !== 2) {
+      throw new Error("Only 2 output amounts are supported");
+    }
+    if (outReceivers.length !== 2) {
+      throw new Error("Only 2 output receivers are supported");
+    }
+
+    const spender = computeVelareAddress(
+      sender,
+      DEFAULT_HPKE_SUITE,
+      viewPublic,
+    );
+
+    // Generate secrets and HPKE data for outputs
+    const outSecrets: bigint[] = [];
+    const outHpkeData: Array<{
+      encapsulatedKey: Uint8Array;
+      ciphertext: Uint8Array;
+    }> = [];
+
+    for (let i = 0; i < 2; i++) {
+      const secret = crypto.getRandomValues(new Uint8Array(32));
+      const secretBigint =
+        BigInt("0x" + Buffer.from(secret).toString("hex")) %
+        BLS12_381_SCALAR_MODULUS;
+      outSecrets.push(secretBigint);
+
+      const { enc, ct } = await DEFAULT_HPKE_SUITE.seal(
+        {
+          recipientPublicKey:
+            await DEFAULT_HPKE_SUITE.kem.deserializePublicKey(viewPublic),
+        },
+        secret,
+      );
+
+      outHpkeData.push({
+        encapsulatedKey: new Uint8Array(enc),
+        ciphertext: new Uint8Array(ct),
+      });
+    }
+
+    const inputs = {
+      spender,
+      asset,
+      receivers: outReceivers,
+      in_amounts: inUtxos.map((u) => u.amount),
+      in_secrets: inUtxos.map((u) => u.secret),
+      out_amounts: outAmounts,
+      out_secrets: outSecrets,
+    };
+
+    // Calculate input commitments (what we're spending)
+    const inputCommitments = inUtxos.map((u) =>
+      calculateCommitment({
+        claimer: spender,
+        asset,
+        amount: u.amount,
+        secret: u.secret,
+      }),
+    );
+
+    // Calculate output commitments (what we're creating)
+    const outputCommitments = outAmounts.map((amount, i) =>
+      calculateCommitment({
+        claimer: outReceivers[i],
+        asset,
+        amount,
+        secret: outSecrets[i],
+      }),
+    );
+
+    await this.spendVerifier.verificationParams({
+      composer: group,
+      inputs,
+      paramsCallback: async (params) => {
+        const { lsigParams, lsigsFee, args } = params;
+
+        const verifierTxn = await this.algorand.createTransaction.payment({
+          ...lsigParams,
+          receiver: lsigParams.sender,
+          amount: microAlgos(0),
+        });
+
+        const hpkeSuite = getHpkeSuiteId(DEFAULT_HPKE_SUITE);
+
+        group.addTransaction(
+          await this.algorand.createTransaction.payment({
+            sender,
+            receiver: this.appClient.appAddress,
+            amount: microAlgos(UTXO_MBR * 2n),
+          }),
+        );
+
+        this.signalVerifier =
+          this.signalVerifier ??
+          (await VelareClient.signalVerifierLsig(this.algorand));
+
+        const signalVerifierTxn = await this.algorand.createTransaction.payment(
+          {
+            sender: this.signalVerifier.address(),
+            receiver: this.appClient.appAddress,
+            amount: microAlgos(0),
+            staticFee: microAlgos(0),
+          },
+        );
+
+        group.spend({
+          sender,
+          args: {
+            verifierTxn,
+            signalVerifierTxn,
+            _signals: args.signals,
+            _proof: args.proof,
+            hpkeData: [
+              [outHpkeData[0].ciphertext, outHpkeData[0].encapsulatedKey],
+              [outHpkeData[1].ciphertext, outHpkeData[1].encapsulatedKey],
+            ],
+            hpkeSuite,
+            viewKey: viewPublic,
+            signalValues: [
+              inputCommitments[0],
+              inputCommitments[1],
+              outputCommitments[0],
+              outputCommitments[1],
+              inputs.spender,
+              inputs.asset,
+              inputs.receivers[0],
+              inputs.receivers[1],
+            ],
+          },
+          extraFee: microAlgos(lsigsFee.microAlgos + 4_000n),
+        });
+      },
+    });
+
+    return {
+      group,
+      inputs,
+      inputCommitments,
+      outputCommitments,
+      outHpkeData,
     };
   }
 }
