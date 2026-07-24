@@ -3,12 +3,13 @@ import {
   VelareFactory as GeneratedFactory,
 } from "../contracts/clients/VelareClient";
 import { AlgorandClient, microAlgos } from "@algorandfoundation/algokit-utils";
-import algosdk from "algosdk";
-import path from "node:path";
+import algosdk, { LogicSigAccount } from "algosdk";
+import path, { join } from "node:path";
 import { PlonkLsigVerifier } from "snarkjs-algorand";
 import { CipherSuite, KemId, KdfId, AeadId } from "hpke-js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { calculateCommitment } from "../../circuits/src";
+import { readFileSync } from "node:fs";
 
 const UTXO_MBR = 63_300n;
 const ADDR_MBR = 45_300n;
@@ -100,6 +101,7 @@ export class VelareClient {
   algorand: AlgorandClient;
   depositVerifier: PlonkLsigVerifier;
   spendVerifier: PlonkLsigVerifier;
+  signalVerifier?: LogicSigAccount;
 
   constructor(algorand: AlgorandClient, appId: bigint) {
     this.appClient = algorand.client.getTypedAppClientById(GeneratedClient, {
@@ -124,6 +126,9 @@ export class VelareClient {
         spendVerifier: (
           await spendVerifier(algorand).lsigAccount()
         ).addr.toString(),
+        signalVerifier: (await this.signalVerifierLsig(algorand))
+          .address()
+          .toString(),
       },
     });
 
@@ -134,6 +139,21 @@ export class VelareClient {
     });
 
     return new VelareClient(algorand, result.appClient.appId);
+  }
+
+  static async signalVerifierLsig(algorand: AlgorandClient) {
+    const signalVerifierTeal = readFileSync(
+      join(__dirname, "../contracts/out/SignalVerifier.teal"),
+    );
+    const compiled = (
+      await algorand.client.algod.compile(signalVerifierTeal).do()
+    ).result;
+
+    const signalVerifier = algorand.account.logicsig(
+      Buffer.from(compiled, "base64"),
+    ).account;
+
+    return signalVerifier;
   }
 
   async composeDepositGroup(
@@ -340,11 +360,25 @@ export class VelareClient {
           }),
         );
 
+        this.signalVerifier =
+          this.signalVerifier ??
+          (await VelareClient.signalVerifierLsig(this.algorand));
+
+        const signalVerifierTxn = await this.algorand.createTransaction.payment(
+          {
+            sender: this.signalVerifier.address(),
+            receiver: this.appClient.appAddress,
+            amount: microAlgos(0),
+            staticFee: microAlgos(0),
+          },
+        );
+
         group.spend({
           sender,
           args: {
             verifierTxn,
-            signals: args.signals,
+            signalVerifierTxn,
+            _signals: args.signals,
             _proof: args.proof,
             hpkeData: [
               [outHpkeData[0].ciphertext, outHpkeData[0].encapsulatedKey],
@@ -363,7 +397,7 @@ export class VelareClient {
               inputs.receivers[1],
             ],
           },
-          extraFee: microAlgos(lsigsFee.microAlgos + 3_000n),
+          extraFee: microAlgos(lsigsFee.microAlgos + 4_000n),
         });
       },
     });
