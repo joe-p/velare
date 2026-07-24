@@ -105,7 +105,6 @@ describe("Velare", async () => {
       [velareAddr, velareAddr],
       senderViewkey.publicKey,
     );
-    debugger;
     await spendResult.group.send();
 
     // Verify old UTXOs are deleted and 2 new ones exist
