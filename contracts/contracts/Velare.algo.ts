@@ -16,7 +16,6 @@ import {
 } from "@algorandfoundation/algorand-typescript";
 import { Uint256 } from "@algorandfoundation/algorand-typescript/arc4";
 import {
-  exp,
   Global,
   mimc,
   MimcConfigurations,
@@ -81,6 +80,14 @@ export type ExpandedVelareAddress = {
 export type HpkeData = {
   encapsulatedKey: bytes;
   ciphertext: bytes;
+};
+
+/** A UTXO to withdraw, opened by revealing its cleartext amount and blinding secret */
+export type AlgoWithdrawal = {
+  /** Cleartext amount of the UTXO */
+  amount: uint64;
+  /** Blinding secret of the UTXO */
+  secret: Uint256;
 };
 
 function u64IsSignal(u64: uint64, signal: Uint256): boolean {
@@ -267,7 +274,10 @@ export class Velare extends Contract {
     // The caller must own the UTXOs being spent
     assert(velareAddr === spender, "spender should be the withdrawer");
     // The withdrawn output must be received by the caller
-    assert(receivers0 === velareAddr, "withdrawal receiver should be the sender");
+    assert(
+      receivers0 === velareAddr,
+      "withdrawal receiver should be the sender",
+    );
     // The change output stays shielded under the caller's address
     assert(receivers1 === spender, "change receiver should be the spender");
 
@@ -300,5 +310,66 @@ export class Velare extends Contract {
 
     // Pay out the un-shielded amount
     itxn.payment({ receiver: Txn.sender, amount: withdrawAmount }).submit();
+  }
+
+  /**
+   * Un-shield ALGO WITHOUT a ZK proof. Instead of proving knowledge of the
+   * UTXOs in zero-knowledge, the caller reveals the cleartext amount and
+   * blinding secret of each UTXO they own. For each one we recompute the MiMC
+   * commitment exactly as the deposit/spend circuits do and require the
+   * corresponding UTXO box to exist in the contract. Because the commitment
+   * binds (receiver, asset, amount, secret), a caller can only produce a
+   * commitment that matches an existing box for UTXOs they actually own and
+   * whose amount/secret they know.
+   *
+   * All revealed UTXOs are spent and their total amount is paid out to the
+   * caller as ALGO; nothing is re-shielded. This path stays available even if
+   * ZK usage is frozen.
+   */
+  withdrawAllAlgo(
+    withdrawals: AlgoWithdrawal[],
+    hpkeSuite: bytes<6>,
+    viewKey: bytes,
+  ) {
+    const asset = new Uint256(0);
+
+    const velareAddr = velareAddress({
+      spendAddress: Txn.sender,
+      hpkeSuite,
+      viewKey,
+    });
+
+    const keysToDelete: UtxoKey[] = [];
+    let total: uint64 = 0;
+
+    for (const withdrawal of clone(withdrawals)) {
+      // A MiMC recomputation per UTXO is expensive; top up the budget each time
+      ensureBudget(4000);
+
+      // Bind the revealed amount/secret to a UTXO commitment:
+      // commitment == MiMC(receiver, asset, amount, secret)
+      const commitment = mimc(
+        MimcConfigurations.BLS12_381Mp111,
+        velareAddr.bytes
+          .concat(asset.bytes)
+          .concat(new Uint256(BigUint(withdrawal.amount)).bytes)
+          .concat(withdrawal.secret.bytes),
+      );
+
+      const key = utxoKey(velareAddr, asset, new Uint256(BigUint(commitment)));
+      assert(
+        this.utxo(key).exists,
+        "revealed amount and secret must open an existing UTXO commitment",
+      );
+
+      keysToDelete.push(key);
+      total += withdrawal.amount;
+    }
+
+    // Delete the spent UTXOs and refund their box MBR to the sender
+    this._deleteUtxos(keysToDelete);
+
+    // Pay out the total un-shielded amount
+    itxn.payment({ receiver: Txn.sender, amount: total }).submit();
   }
 }

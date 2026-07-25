@@ -207,4 +207,57 @@ describe("Velare", async () => {
       -(UTXO_MBR + withdrawAmount),
     );
   }, 30_000);
+
+  it("should handle withdrawAll without ZK", async () => {
+    // Create two deposits (50n each) to sender
+    const deposit1Result = await client.composeDepositGroup(
+      sender,
+      0n,
+      50n,
+      senderViewkey.publicKey,
+    );
+    await deposit1Result.group.send();
+
+    const deposit2Result = await client.composeDepositGroup(
+      sender,
+      0n,
+      50n,
+      senderViewkey.publicKey,
+    );
+    await deposit2Result.group.send();
+
+    let utxos = await client.appClient.state.box.utxo.getMap();
+    expect(utxos.size).toBe(2);
+
+    const inUtxos = [
+      { amount: 50n, secret: deposit1Result.inputs.out_secrets[0] },
+      { amount: 50n, secret: deposit2Result.inputs.out_secrets[0] },
+    ];
+
+    const UTXO_MBR = 63_300n;
+    const appAddress = client.appClient.appAddress;
+    const appBalanceBefore = (await algorand.account.getInformation(appAddress))
+      .balance.microAlgos;
+
+    const withdrawResult = await client.composeWithdrawAllGroup(
+      sender,
+      0n,
+      inUtxos,
+      senderViewkey.publicKey,
+    );
+    await withdrawResult.group.send();
+
+    // Both UTXOs are spent, none remain
+    utxos = await client.appClient.state.box.utxo.getMap();
+    expect(utxos.size).toBe(0);
+
+    // The app refunds 2x UTXO_MBR (deleted inputs) and pays out the total
+    // withdrawn value. Inner-txn fees are drawn from the group credit, so the
+    // app balance drops by exactly (total + refunded MBR).
+    const appBalanceAfter = (await algorand.account.getInformation(appAddress))
+      .balance.microAlgos;
+    expect(appBalanceAfter - appBalanceBefore).toBe(
+      -(2n * UTXO_MBR + withdrawResult.total),
+    );
+  }, 30_000);
 });
