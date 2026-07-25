@@ -46,6 +46,9 @@ const BLS12_381_SCALAR_MODULUS = BigInt(
   "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
 );
 
+// Eventually AlgoKit will need to take care of this, but for now we just assume FALCON everywhere
+const FALCON_FEE = 2_000n;
+
 export const X25519_HPKE_SUITE = new CipherSuite({
   kem: KemId.DhkemX25519HkdfSha256,
   kdf: KdfId.HkdfSha512,
@@ -207,6 +210,7 @@ export class VelareClient {
 
     const result = await factory.send.create.createApplication({
       sender: creator,
+      extraFee: microAlgos(FALCON_FEE),
       args: {
         depositVerifier: (
           await depositVerifier(algorand).lsigAccount()
@@ -224,6 +228,7 @@ export class VelareClient {
       sender: creator,
       receiver: result.appClient.appAddress,
       amount: microAlgos(100_000),
+      extraFee: microAlgos(FALCON_FEE),
     });
 
     return new VelareClient(algorand, result.appClient.appId);
@@ -311,6 +316,7 @@ export class VelareClient {
                 amount: microAlgos(
                   amount + costs.mbrPerUtxo + costs.mbrPerAddress,
                 ),
+                extraFee: microAlgos(FALCON_FEE),
               }),
               hpkeData: {
                 encapsulatedKey: new Uint8Array(enc),
@@ -319,7 +325,9 @@ export class VelareClient {
               hpkeSuite,
               viewKey: viewPublic,
             },
-            extraFee: microAlgos(lsigsFee.microAlgos + costs.extraFeePerUtxo),
+            extraFee: microAlgos(
+              lsigsFee.microAlgos + costs.extraFeePerUtxo + FALCON_FEE,
+            ),
           });
         } else {
           throw Error("ASAs not yet supported");
@@ -440,6 +448,7 @@ export class VelareClient {
         group.addTransaction(
           await this.algorand.createTransaction.payment({
             sender,
+            extraFee: microAlgos(FALCON_FEE),
             receiver: this.appClient.appAddress,
             amount: microAlgos(costs.mbrPerUtxo * 2n),
           }),
@@ -483,7 +492,10 @@ export class VelareClient {
             ],
           },
           extraFee: microAlgos(
-            lsigsFee.microAlgos + 4_000n + 2n * costs.extraFeePerUtxo,
+            lsigsFee.microAlgos +
+              4_000n +
+              2n * costs.extraFeePerUtxo +
+              FALCON_FEE,
           ),
         });
       },
@@ -659,7 +671,7 @@ export class VelareClient {
           },
           // Covers the zk/signal lsig fees plus the op-up and payment itxns
           // issued by withdrawAlgo (ensureBudget op-ups + MBR refund + payout)
-          extraFee: microAlgos(lsigsFee.microAlgos + 12_000n),
+          extraFee: microAlgos(lsigsFee.microAlgos + 12_000n + FALCON_FEE),
         });
       },
     });

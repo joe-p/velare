@@ -8,8 +8,9 @@ import {
   XWING_HPKE_SUITE,
 } from "../src";
 import { AlgorandClient } from "@algorandfoundation/algokit-utils";
-import algosdk from "algosdk";
+import algosdk, { addressWithSignersFromRawFalcon1024Signer } from "algosdk";
 import { CipherSuite, KemId } from "hpke-js";
+import * as falcon from "falcon-1024";
 
 function getKemName(suite: CipherSuite) {
   const id = suite.kem.id;
@@ -25,7 +26,22 @@ describe("Velare", async () => {
 
   beforeEach(async () => {
     algorand = AlgorandClient.defaultLocalNet();
-    sender = (await algorand.account.dispenserFromEnvironment()).addr;
+    const keypair = falcon.generateKey();
+    const { address, txnSigner } = addressWithSignersFromRawFalcon1024Signer({
+      falcon1024PublicKey: keypair.publicKey,
+      falcon1024Signer: async (bytes: Uint8Array) => {
+        return falcon.signCompressed(keypair.privateKey, bytes);
+      },
+    });
+
+    sender = address;
+    await algorand.account.ensureFundedFromEnvironment(sender, (10).algo());
+
+    algorand.account.setSignerFromAccount({
+      addr: sender,
+      signer: txnSigner,
+    });
+
     client = await VelareClient.deploy(algorand, sender);
   });
 
