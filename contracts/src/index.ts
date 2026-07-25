@@ -54,8 +54,6 @@ export const XWING_HPKE_SUITE = new CipherSuite({
   aead: AeadId.Chacha20Poly1305,
 });
 
-export const DEFAULT_HPKE_SUITE = XWING_HPKE_SUITE;
-
 export function getKemCosts(suite: CipherSuite): KemCosts {
   if (suite.kem.id === KemId.XWing) return XWING_COSTS;
   if (suite.kem.id === KemId.DhkemX25519HkdfSha256) return X25519_COSTS;
@@ -199,17 +197,17 @@ export class VelareClient {
     asset: bigint,
     amount: bigint,
     viewPublic: Uint8Array,
+    suite: CipherSuite,
   ) {
     const group = this.appClient.newGroup();
 
     const secret = crypto.getRandomValues(new Uint8Array(32));
 
-    const hpkeSuite = getHpkeSuiteId(DEFAULT_HPKE_SUITE);
+    const hpkeSuite = getHpkeSuiteId(suite);
 
-    const { enc, ct } = await DEFAULT_HPKE_SUITE.seal(
+    const { enc, ct } = await suite.seal(
       {
-        recipientPublicKey:
-          await DEFAULT_HPKE_SUITE.kem.deserializePublicKey(viewPublic),
+        recipientPublicKey: await suite.kem.deserializePublicKey(viewPublic),
       },
       secret,
     );
@@ -218,11 +216,7 @@ export class VelareClient {
       BigInt("0x" + Buffer.from(secret).toString("hex")) %
       BLS12_381_SCALAR_MODULUS;
 
-    const receiver = computeVelareAddress(
-      sender,
-      DEFAULT_HPKE_SUITE,
-      viewPublic,
-    );
+    const receiver = computeVelareAddress(sender, suite, viewPublic);
 
     const inputs = {
       asset,
@@ -251,7 +245,7 @@ export class VelareClient {
           amount: microAlgos(0),
         });
 
-        const costs = getKemCosts(DEFAULT_HPKE_SUITE);
+        const costs = getKemCosts(suite);
         if (asset === 0n) {
           group.depositAlgo({
             sender,
@@ -302,6 +296,7 @@ export class VelareClient {
     outAmounts: bigint[],
     outReceivers: bigint[],
     viewPublic: Uint8Array,
+    suite: CipherSuite,
   ) {
     const group = this.appClient.newGroup();
 
@@ -315,11 +310,7 @@ export class VelareClient {
       throw new Error("Only 2 output receivers are supported");
     }
 
-    const spender = computeVelareAddress(
-      sender,
-      DEFAULT_HPKE_SUITE,
-      viewPublic,
-    );
+    const spender = computeVelareAddress(sender, suite, viewPublic);
 
     // Generate secrets and HPKE data for outputs
     const outSecrets: bigint[] = [];
@@ -328,7 +319,7 @@ export class VelareClient {
       ciphertext: Uint8Array;
     }> = [];
 
-    const costs = getKemCosts(DEFAULT_HPKE_SUITE);
+    const costs = getKemCosts(suite);
 
     for (let i = 0; i < 2; i++) {
       const secret = crypto.getRandomValues(new Uint8Array(32));
@@ -337,10 +328,9 @@ export class VelareClient {
         BLS12_381_SCALAR_MODULUS;
       outSecrets.push(secretBigint);
 
-      const { enc, ct } = await DEFAULT_HPKE_SUITE.seal(
+      const { enc, ct } = await suite.seal(
         {
-          recipientPublicKey:
-            await DEFAULT_HPKE_SUITE.kem.deserializePublicKey(viewPublic),
+          recipientPublicKey: await suite.kem.deserializePublicKey(viewPublic),
         },
         secret,
       );
@@ -393,7 +383,7 @@ export class VelareClient {
           amount: microAlgos(0),
         });
 
-        const hpkeSuite = getHpkeSuiteId(DEFAULT_HPKE_SUITE);
+        const hpkeSuite = getHpkeSuiteId(suite);
 
         group.addTransaction(
           await this.algorand.createTransaction.payment({
@@ -472,6 +462,7 @@ export class VelareClient {
     }>,
     withdrawAmount: bigint,
     viewPublic: Uint8Array,
+    suite: CipherSuite,
   ) {
     const group = this.appClient.newGroup();
 
@@ -479,11 +470,7 @@ export class VelareClient {
       throw new Error("Only 2 input UTXOs are supported");
     }
 
-    const spender = computeVelareAddress(
-      sender,
-      DEFAULT_HPKE_SUITE,
-      viewPublic,
-    );
+    const spender = computeVelareAddress(sender, suite, viewPublic);
 
     const totalIn = inUtxos[0].amount + inUtxos[1].amount;
     if (withdrawAmount > totalIn) {
@@ -512,10 +499,9 @@ export class VelareClient {
         BLS12_381_SCALAR_MODULUS;
       outSecrets.push(secretBigint);
 
-      const { enc, ct } = await DEFAULT_HPKE_SUITE.seal(
+      const { enc, ct } = await suite.seal(
         {
-          recipientPublicKey:
-            await DEFAULT_HPKE_SUITE.kem.deserializePublicKey(viewPublic),
+          recipientPublicKey: await suite.kem.deserializePublicKey(viewPublic),
         },
         secret,
       );
@@ -568,8 +554,8 @@ export class VelareClient {
           amount: microAlgos(0),
         });
 
-        const hpkeSuite = getHpkeSuiteId(DEFAULT_HPKE_SUITE);
-        const costs = getKemCosts(DEFAULT_HPKE_SUITE);
+        const hpkeSuite = getHpkeSuiteId(suite);
+        const costs = getKemCosts(suite);
 
         // Fund the MBR for the single change UTXO box
         group.addTransaction(
@@ -649,6 +635,7 @@ export class VelareClient {
     asset: bigint,
     inUtxos: Array<{ amount: bigint; secret: bigint }>,
     viewPublic: Uint8Array,
+    suite: CipherSuite,
   ) {
     const group = this.appClient.newGroup();
 
@@ -656,13 +643,9 @@ export class VelareClient {
       throw new Error("withdrawAllAlgo only supports ALGO (asset 0)");
     }
 
-    const hpkeSuite = getHpkeSuiteId(DEFAULT_HPKE_SUITE);
+    const hpkeSuite = getHpkeSuiteId(suite);
 
-    const spender = computeVelareAddress(
-      sender,
-      DEFAULT_HPKE_SUITE,
-      viewPublic,
-    );
+    const spender = computeVelareAddress(sender, suite, viewPublic);
 
     // The commitments the contract will recompute and look up as UTXO boxes
     const inputCommitments = inUtxos.map((u) =>
