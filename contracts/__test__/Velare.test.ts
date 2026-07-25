@@ -3,6 +3,7 @@ import {
   computeVelareAddress,
   DEFAULT_HPKE_SUITE,
   getHpkeSuiteId,
+  getKemCosts,
   VelareClient,
 } from "../src";
 import { AlgorandClient } from "@algorandfoundation/algokit-utils";
@@ -170,7 +171,6 @@ describe("Velare", async () => {
     // Withdraw 70n of the 100n, re-shielding 30n as change
     const withdrawAmount = 70n;
 
-    const UTXO_MBR = 63_300n;
     const appAddress = client.appClient.appAddress;
     const appBalanceBefore = (await algorand.account.getInformation(appAddress))
       .balance.microAlgos;
@@ -208,7 +208,7 @@ describe("Velare", async () => {
     const appBalanceAfter = (await algorand.account.getInformation(appAddress))
       .balance.microAlgos;
     expect(appBalanceAfter - appBalanceBefore).toBe(
-      -(UTXO_MBR + withdrawAmount),
+      -(getKemCosts(DEFAULT_HPKE_SUITE).mbrPerUtxo + withdrawAmount),
     );
   }, 30_000);
 
@@ -238,7 +238,6 @@ describe("Velare", async () => {
       { amount: 50n, secret: deposit2Result.inputs.out_secrets[0] },
     ];
 
-    const UTXO_MBR = 63_300n;
     const appAddress = client.appClient.appAddress;
     const appBalanceBefore = (await algorand.account.getInformation(appAddress))
       .balance.microAlgos;
@@ -261,7 +260,7 @@ describe("Velare", async () => {
     const appBalanceAfter = (await algorand.account.getInformation(appAddress))
       .balance.microAlgos;
     expect(appBalanceAfter - appBalanceBefore).toBe(
-      -(2n * UTXO_MBR + withdrawResult.total),
+      -(2n * getKemCosts(DEFAULT_HPKE_SUITE).mbrPerUtxo + withdrawResult.total),
     );
   }, 30_000);
 });

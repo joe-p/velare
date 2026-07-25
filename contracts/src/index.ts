@@ -7,12 +7,36 @@ import algosdk, { LogicSigAccount } from "algosdk";
 import path, { join } from "node:path";
 import { PlonkLsigVerifier } from "snarkjs-algorand";
 import { CipherSuite, KemId, KdfId, AeadId } from "hpke-js";
+import { XWing } from "@hpke/hybridkem-x-wing";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { calculateCommitment } from "../../circuits/src";
 import { readFileSync } from "node:fs";
 
-const UTXO_MBR = 63_300n;
-const ADDR_MBR = 45_300n;
+type KemCosts = {
+  /** Box MBR for a single UTXO box (key + HpkeData value) */
+  mbrPerUtxo: bigint;
+  /** Box MBR for a single addressInfo box (key + ExpandedVelareAddress value) */
+  mbrPerAddress: bigint;
+  extraFeePerUtxo: bigint;
+};
+
+const X25519_COSTS: KemCosts = {
+  mbrPerUtxo: 63_300n,
+  mbrPerAddress: 45_300n,
+  extraFeePerUtxo: 0n,
+};
+
+const XWING_COSTS: KemCosts = {
+  // X-Wing's encapsulated key is 1088 bytes larger than X25519's (ML-KEM-768
+  // ciphertext 1088B + X25519 ephemeral 32B = 1120B vs 32B), which costs an
+  // extra 1088 * 400 = 435_200 microAlgos of box MBR per UTXO.
+  mbrPerUtxo: X25519_COSTS.mbrPerUtxo + 435_200n,
+  // X-Wing's view key (public key) is 1184 bytes larger than X25519's
+  // (ML-KEM-768 encapsulation key 1184B + X25519 32B = 1216B vs 32B), which
+  // costs an extra 1184 * 400 = 473_600 microAlgos of box MBR per address.
+  mbrPerAddress: X25519_COSTS.mbrPerAddress + 473_600n,
+  extraFeePerUtxo: 155_000n,
+};
 
 const BLS12_381_SCALAR_MODULUS = BigInt(
   "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
@@ -24,7 +48,19 @@ export const X25519_HPKE_SUITE = new CipherSuite({
   aead: AeadId.Chacha20Poly1305,
 });
 
-export const DEFAULT_HPKE_SUITE = X25519_HPKE_SUITE;
+export const XWING_HPKE_SUITE = new CipherSuite({
+  kem: new XWing(),
+  kdf: KdfId.HkdfSha512,
+  aead: AeadId.Chacha20Poly1305,
+});
+
+export const DEFAULT_HPKE_SUITE = XWING_HPKE_SUITE;
+
+export function getKemCosts(suite: CipherSuite): KemCosts {
+  if (suite.kem.id === KemId.XWing) return XWING_COSTS;
+  if (suite.kem.id === KemId.DhkemX25519HkdfSha256) return X25519_COSTS;
+  throw Error(`Unsupported KEM ${suite.kem}`);
+}
 
 export function getHpkeSuiteId(suite: CipherSuite): Uint8Array {
   const id = new Uint8Array(6);
@@ -215,6 +251,7 @@ export class VelareClient {
           amount: microAlgos(0),
         });
 
+        const costs = getKemCosts(DEFAULT_HPKE_SUITE);
         if (asset === 0n) {
           group.depositAlgo({
             sender,
@@ -225,7 +262,9 @@ export class VelareClient {
               depositTxn: this.algorand.createTransaction.payment({
                 sender,
                 receiver: this.appClient.appAddress,
-                amount: microAlgos(amount + UTXO_MBR + ADDR_MBR),
+                amount: microAlgos(
+                  amount + costs.mbrPerUtxo + costs.mbrPerAddress,
+                ),
               }),
               hpkeData: {
                 encapsulatedKey: new Uint8Array(enc),
@@ -234,7 +273,7 @@ export class VelareClient {
               hpkeSuite,
               viewKey: viewPublic,
             },
-            extraFee: microAlgos(lsigsFee.microAlgos),
+            extraFee: microAlgos(lsigsFee.microAlgos + costs.extraFeePerUtxo),
           });
         } else {
           throw Error("ASAs not yet supported");
@@ -288,6 +327,8 @@ export class VelareClient {
       encapsulatedKey: Uint8Array;
       ciphertext: Uint8Array;
     }> = [];
+
+    const costs = getKemCosts(DEFAULT_HPKE_SUITE);
 
     for (let i = 0; i < 2; i++) {
       const secret = crypto.getRandomValues(new Uint8Array(32));
@@ -358,7 +399,7 @@ export class VelareClient {
           await this.algorand.createTransaction.payment({
             sender,
             receiver: this.appClient.appAddress,
-            amount: microAlgos(UTXO_MBR * 2n),
+            amount: microAlgos(costs.mbrPerUtxo * 2n),
           }),
         );
 
@@ -399,7 +440,9 @@ export class VelareClient {
               inputs.receivers[1],
             ],
           },
-          extraFee: microAlgos(lsigsFee.microAlgos + 4_000n),
+          extraFee: microAlgos(
+            lsigsFee.microAlgos + 4_000n + 2n * costs.extraFeePerUtxo,
+          ),
         });
       },
     });
@@ -526,13 +569,14 @@ export class VelareClient {
         });
 
         const hpkeSuite = getHpkeSuiteId(DEFAULT_HPKE_SUITE);
+        const costs = getKemCosts(DEFAULT_HPKE_SUITE);
 
         // Fund the MBR for the single change UTXO box
         group.addTransaction(
           await this.algorand.createTransaction.payment({
             sender,
             receiver: this.appClient.appAddress,
-            amount: microAlgos(UTXO_MBR),
+            amount: microAlgos(costs.mbrPerUtxo),
           }),
         );
 

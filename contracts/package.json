@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@algorandfoundation/algokit-utils": "^9.0.0",
+    "@hpke/hybridkem-x-wing": "^0.7.0",
     "@noble/curves": "^2.2.0",
     "@noble/hashes": "^2.2.0",
     "algosdk": "^3.5.2",
