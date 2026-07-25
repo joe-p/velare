@@ -606,6 +606,10 @@ export class VelareClient {
   ) {
     const group = this.appClient.newGroup();
 
+    if (asset !== 0n) {
+      throw new Error("withdrawAllAlgo only supports ALGO (asset 0)");
+    }
+
     const hpkeSuite = getHpkeSuiteId(DEFAULT_HPKE_SUITE);
 
     const spender = computeVelareAddress(
