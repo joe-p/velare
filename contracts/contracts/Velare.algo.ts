@@ -118,6 +118,8 @@ export class Velare extends Contract {
 
   signalVerifier = GlobalState<Account>({ key: "S" });
 
+  zkFrozen = GlobalState<boolean>({ key: "f" });
+
   /** Map of UTXO information to the HPKE data */
   utxo = BoxMap<UtxoKey, HpkeData>({ keyPrefix: "u" });
 
@@ -133,6 +135,15 @@ export class Velare extends Contract {
     this.depositVerifier.value = depositVerifier;
     this.spendVerifier.value = spendVerifier;
     this.signalVerifier.value = signalVerifier;
+    this.zkFrozen.value = false;
+  }
+
+  freezeZk() {
+    assert(Txn.sender === Txn.applicationId.creator, "only creator can freeze");
+  }
+
+  assertZkIsNotFrozen() {
+    assert(this.zkFrozen.value === false, "ZK is frozen");
   }
 
   depositAlgo(
@@ -144,6 +155,8 @@ export class Velare extends Contract {
     hpkeSuite: bytes<6>,
     viewKey: bytes,
   ) {
+    this.assertZkIsNotFrozen();
+
     assert(
       verifierTxn.sender === this.depositVerifier.value,
       "invalid verifier txn",
@@ -191,6 +204,8 @@ export class Velare extends Contract {
     hpkeSuite: bytes<6>,
     viewKey: bytes,
   ) {
+    this.assertZkIsNotFrozen();
+
     ensureBudget(1400);
     assert(
       verifierTxn.sender === this.spendVerifier.value,
@@ -249,6 +264,8 @@ export class Velare extends Contract {
     hpkeSuite: bytes<6>,
     viewKey: bytes,
   ) {
+    this.assertZkIsNotFrozen();
+
     // Extra budget covers the MiMC recomputation of the output commitment
     ensureBudget(4000);
     assert(
