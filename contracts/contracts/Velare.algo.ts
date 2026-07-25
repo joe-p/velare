@@ -18,6 +18,8 @@ import { Uint256 } from "@algorandfoundation/algorand-typescript/arc4";
 import {
   exp,
   Global,
+  mimc,
+  MimcConfigurations,
   sha256,
 } from "@algorandfoundation/algorand-typescript/op";
 
@@ -213,5 +215,90 @@ export class Velare extends Contract {
     this.utxo(outKey1).value = clone(hpkeData[1]);
 
     this._deleteUtxos([inKey0, inKey1]);
+  }
+
+  /**
+   * Un-shield ALGO by spending two UTXOs. Re-uses the spend_hashed_2_2 circuit:
+   * one output (out0) is withdrawn to the caller as ALGO, the other (out1) is
+   * kept as a shielded change UTXO. The circuit guarantees in0 + in1 == out0 +
+   * out1, so paying out out0's amount and re-shielding out1 conserves value.
+   *
+   * The withdrawn amount is private in the proof, so the caller must reveal
+   * out0's amount and blinding secret; we recompute its commitment with the
+   * same MiMC used by the circuit and require it to match the proven output.
+   */
+  withdrawAlgo(
+    _signals: Uint256[],
+    _proof: PlonkProof,
+    signalValues: Uint256[],
+    signalVerifierTxn: gtxn.Transaction,
+    verifierTxn: gtxn.Transaction,
+    /** Cleartext amount of the withdrawn output (out0) */
+    withdrawAmount: uint64,
+    /** Blinding secret of the withdrawn output (out0) */
+    withdrawSecret: Uint256,
+    /** HPKE data for the re-shielded change output (out1) */
+    changeHpkeData: HpkeData,
+    hpkeSuite: bytes<6>,
+    viewKey: bytes,
+  ) {
+    // Extra budget covers the MiMC recomputation of the output commitment
+    ensureBudget(4000);
+    assert(
+      verifierTxn.sender === this.spendVerifier.value,
+      "invalid zk verifier txn",
+    );
+    assert(
+      signalVerifierTxn.sender === this.signalVerifier.value,
+      "invalid signal verifier txn",
+    );
+
+    const [in0, in1, out0, out1, spender, asset, receivers0, receivers1] =
+      signalValues;
+
+    assert(u64IsSignal(0, asset), "withdrawal only supports ALGO (asset 0)");
+
+    const velareAddr = velareAddress({
+      spendAddress: Txn.sender,
+      hpkeSuite,
+      viewKey,
+    });
+
+    // The caller must own the UTXOs being spent
+    assert(velareAddr === spender, "spender should be the withdrawer");
+    // The withdrawn output must be received by the caller
+    assert(receivers0 === velareAddr, "withdrawal receiver should be the sender");
+    // The change output stays shielded under the caller's address
+    assert(receivers1 === spender, "change receiver should be the spender");
+
+    // Bind the revealed amount/secret to the proven output commitment:
+    // commitment == MiMC(receiver, asset, amount, secret)
+    const commitment = mimc(
+      MimcConfigurations.BLS12_381Mp111,
+      receivers0.bytes
+        .concat(asset.bytes)
+        .concat(new Uint256(BigUint(withdrawAmount)).bytes)
+        .concat(withdrawSecret.bytes),
+    );
+    assert(
+      BigUint(commitment) === out0.asBigUint(),
+      "revealed amount and secret must open the withdrawal output commitment",
+    );
+
+    const inKey0 = utxoKey(spender, asset, in0);
+    const inKey1 = utxoKey(spender, asset, in1);
+    const changeKey = utxoKey(receivers1, asset, out1);
+
+    assert(this.utxo(inKey0).exists);
+    assert(this.utxo(inKey1).exists);
+
+    // Re-shield the change output
+    this.utxo(changeKey).value = clone(changeHpkeData);
+
+    // Delete the spent inputs and refund their box MBR to the sender
+    this._deleteUtxos([inKey0, inKey1]);
+
+    // Pay out the un-shielded amount
+    itxn.payment({ receiver: Txn.sender, amount: withdrawAmount }).submit();
   }
 }

@@ -410,4 +410,185 @@ export class VelareClient {
       outHpkeData,
     };
   }
+
+  /**
+   * Un-shield ALGO by spending two UTXOs via the spend_hashed_2_2 circuit.
+   * The first output (out0) is withdrawn to `sender` as ALGO; the remaining
+   * value is re-shielded as a change UTXO (out1) back to the same address.
+   */
+  async composeWithdrawGroup(
+    sender: algosdk.Address,
+    asset: bigint,
+    inUtxos: Array<{
+      amount: bigint;
+      secret: bigint;
+      encapsulatedKey: Uint8Array;
+      ciphertext: Uint8Array;
+    }>,
+    withdrawAmount: bigint,
+    viewPublic: Uint8Array,
+  ) {
+    const group = this.appClient.newGroup();
+
+    if (inUtxos.length !== 2) {
+      throw new Error("Only 2 input UTXOs are supported");
+    }
+
+    const spender = computeVelareAddress(
+      sender,
+      DEFAULT_HPKE_SUITE,
+      viewPublic,
+    );
+
+    const totalIn = inUtxos[0].amount + inUtxos[1].amount;
+    if (withdrawAmount > totalIn) {
+      throw new Error("Withdraw amount exceeds input UTXO value");
+    }
+    const changeAmount = totalIn - withdrawAmount;
+
+    // out0 = withdrawn to the sender, out1 = re-shielded change to the spender.
+    // Both receivers are the caller's Velare address (the contract requires
+    // receiver0 == velareAddress(sender) and receiver1 == spender).
+    const outAmounts = [withdrawAmount, changeAmount];
+    const outReceivers = [spender, spender];
+
+    // Generate a blinding secret for each output. out0's secret is revealed to
+    // the contract; out1 is stored as a UTXO box so it also needs HPKE data.
+    const outSecrets: bigint[] = [];
+    const outHpkeData: Array<{
+      encapsulatedKey: Uint8Array;
+      ciphertext: Uint8Array;
+    }> = [];
+
+    for (let i = 0; i < 2; i++) {
+      const secret = crypto.getRandomValues(new Uint8Array(32));
+      const secretBigint =
+        BigInt("0x" + Buffer.from(secret).toString("hex")) %
+        BLS12_381_SCALAR_MODULUS;
+      outSecrets.push(secretBigint);
+
+      const { enc, ct } = await DEFAULT_HPKE_SUITE.seal(
+        {
+          recipientPublicKey:
+            await DEFAULT_HPKE_SUITE.kem.deserializePublicKey(viewPublic),
+        },
+        secret,
+      );
+
+      outHpkeData.push({
+        encapsulatedKey: new Uint8Array(enc),
+        ciphertext: new Uint8Array(ct),
+      });
+    }
+
+    const inputs = {
+      spender,
+      asset,
+      receivers: outReceivers,
+      in_amounts: inUtxos.map((u) => u.amount),
+      in_secrets: inUtxos.map((u) => u.secret),
+      out_amounts: outAmounts,
+      out_secrets: outSecrets,
+    };
+
+    // Input commitments (what we're spending)
+    const inputCommitments = inUtxos.map((u) =>
+      calculateCommitment({
+        claimer: spender,
+        asset,
+        amount: u.amount,
+        secret: u.secret,
+      }),
+    );
+
+    // Output commitments (out0 withdrawn, out1 change)
+    const outputCommitments = outAmounts.map((amount, i) =>
+      calculateCommitment({
+        claimer: outReceivers[i],
+        asset,
+        amount,
+        secret: outSecrets[i],
+      }),
+    );
+
+    await this.spendVerifier.verificationParams({
+      composer: group,
+      inputs,
+      paramsCallback: async (params) => {
+        const { lsigParams, lsigsFee, args } = params;
+
+        const verifierTxn = await this.algorand.createTransaction.payment({
+          ...lsigParams,
+          receiver: lsigParams.sender,
+          amount: microAlgos(0),
+        });
+
+        const hpkeSuite = getHpkeSuiteId(DEFAULT_HPKE_SUITE);
+
+        // Fund the MBR for the single change UTXO box
+        group.addTransaction(
+          await this.algorand.createTransaction.payment({
+            sender,
+            receiver: this.appClient.appAddress,
+            amount: microAlgos(UTXO_MBR),
+          }),
+        );
+
+        this.signalVerifier =
+          this.signalVerifier ??
+          (await VelareClient.signalVerifierLsig(this.algorand));
+
+        const signalVerifierTxn = await this.algorand.createTransaction.payment(
+          {
+            sender: this.signalVerifier.address(),
+            receiver: this.appClient.appAddress,
+            amount: microAlgos(0),
+            staticFee: microAlgos(0),
+          },
+        );
+
+        group.withdrawAlgo({
+          sender,
+          args: {
+            verifierTxn,
+            signalVerifierTxn,
+            _signals: args.signals,
+            _proof: args.proof,
+            withdrawAmount,
+            withdrawSecret: outSecrets[0],
+            changeHpkeData: {
+              encapsulatedKey: outHpkeData[1].encapsulatedKey,
+              ciphertext: outHpkeData[1].ciphertext,
+            },
+            hpkeSuite,
+            viewKey: viewPublic,
+            signalValues: [
+              inputCommitments[0],
+              inputCommitments[1],
+              outputCommitments[0],
+              outputCommitments[1],
+              inputs.spender,
+              inputs.asset,
+              inputs.receivers[0],
+              inputs.receivers[1],
+            ],
+          },
+          // Covers the zk/signal lsig fees plus the op-up and payment itxns
+          // issued by withdrawAlgo (ensureBudget op-ups + MBR refund + payout)
+          extraFee: microAlgos(lsigsFee.microAlgos + 12_000n),
+        });
+      },
+    });
+
+    return {
+      group,
+      inputs,
+      inputCommitments,
+      outputCommitments,
+      outHpkeData,
+      withdrawAmount,
+      changeAmount,
+      changeCommitment: outputCommitments[1],
+    };
+  }
 }

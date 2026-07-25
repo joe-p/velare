@@ -126,4 +126,85 @@ describe("Velare", async () => {
     expect(hasCommitment1).toBe(true);
     expect(hasCommitment2).toBe(true);
   }, 30_000);
+
+  it("should handle withdraw", async () => {
+    // Create two deposits (50n each) to sender
+    const deposit1Result = await client.composeDepositGroup(
+      sender,
+      0n,
+      50n,
+      senderViewkey.publicKey,
+    );
+    await deposit1Result.group.send();
+
+    const deposit2Result = await client.composeDepositGroup(
+      sender,
+      0n,
+      50n,
+      senderViewkey.publicKey,
+    );
+    await deposit2Result.group.send();
+
+    let utxos = await client.appClient.state.box.utxo.getMap();
+    expect(utxos.size).toBe(2);
+
+    const inUtxos = [
+      {
+        amount: 50n,
+        secret: deposit1Result.inputs.out_secrets[0],
+        encapsulatedKey: deposit1Result.enc,
+        ciphertext: deposit1Result.ct,
+      },
+      {
+        amount: 50n,
+        secret: deposit2Result.inputs.out_secrets[0],
+        encapsulatedKey: deposit2Result.enc,
+        ciphertext: deposit2Result.ct,
+      },
+    ];
+
+    // Withdraw 70n of the 100n, re-shielding 30n as change
+    const withdrawAmount = 70n;
+
+    const UTXO_MBR = 63_300n;
+    const appAddress = client.appClient.appAddress;
+    const appBalanceBefore = (await algorand.account.getInformation(appAddress))
+      .balance.microAlgos;
+
+    const withdrawResult = await client.composeWithdrawGroup(
+      sender,
+      0n,
+      inUtxos,
+      withdrawAmount,
+      senderViewkey.publicKey,
+    );
+    await withdrawResult.group.send();
+
+    // The two input UTXOs are deleted and a single change UTXO remains
+    utxos = await client.appClient.state.box.utxo.getMap();
+    expect(utxos.size).toBe(1);
+
+    const utxoEntries = Array.from(utxos.entries());
+    const [changeKey, changeUtxo] = utxoEntries[0];
+
+    // The remaining box is the change output commitment
+    expect(changeKey.utxo).toBe(withdrawResult.changeCommitment);
+
+    // The change UTXO stores the HPKE data for out1
+    expect(changeUtxo.encapsulatedKey).toEqual(
+      withdrawResult.outHpkeData[1].encapsulatedKey,
+    );
+    expect(changeUtxo.ciphertext).toEqual(
+      withdrawResult.outHpkeData[1].ciphertext,
+    );
+
+    // The app funds 1x UTXO_MBR (change box), refunds 2x UTXO_MBR (deleted
+    // inputs) and pays out the withdrawn amount. Inner-txn fees are drawn from
+    // the group credit, so the app balance drops by exactly (MBR + amount).
+    const appBalanceAfter = (await algorand.account.getInformation(appAddress))
+      .balance.microAlgos;
+    expect(appBalanceAfter - appBalanceBefore).toBe(
+      -(UTXO_MBR + withdrawAmount),
+    );
+  }, 30_000);
 });
