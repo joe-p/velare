@@ -7,12 +7,16 @@ import {
 } from "../src";
 import { AlgorandClient } from "@algorandfoundation/algokit-utils";
 import algosdk from "algosdk";
-import { x25519 } from "@noble/curves/ed25519.js";
 
 describe("Velare", async () => {
   let algorand: AlgorandClient;
   let sender: algosdk.Address;
-  let senderViewkey = x25519.keygen();
+  const senderViewkey = new Uint8Array(
+    await DEFAULT_HPKE_SUITE.kem.serializePublicKey(
+      (await DEFAULT_HPKE_SUITE.kem.generateKeyPair()).publicKey,
+    ),
+  );
+
   let client: VelareClient;
 
   beforeEach(async () => {
@@ -26,7 +30,7 @@ describe("Velare", async () => {
       sender,
       0n,
       5n,
-      senderViewkey.publicKey,
+      senderViewkey,
     );
     await group.send();
 
@@ -40,7 +44,7 @@ describe("Velare", async () => {
     const velareAddr = computeVelareAddress(
       sender,
       DEFAULT_HPKE_SUITE,
-      senderViewkey.publicKey,
+      senderViewkey,
     );
 
     const addressInfo =
@@ -48,14 +52,14 @@ describe("Velare", async () => {
 
     expect(addressInfo?.hpkeSuite).toEqual(getHpkeSuiteId(DEFAULT_HPKE_SUITE));
     expect(addressInfo?.spendAddress).toEqual(sender.toString());
-    expect(addressInfo?.viewKey).toEqual(senderViewkey.publicKey);
+    expect(addressInfo?.viewKey).toEqual(senderViewkey);
   });
 
   it("should handle spend", async () => {
     const velareAddr = computeVelareAddress(
       sender,
       DEFAULT_HPKE_SUITE,
-      senderViewkey.publicKey,
+      senderViewkey,
     );
 
     // Create first deposit (50n to sender)
@@ -63,7 +67,7 @@ describe("Velare", async () => {
       sender,
       0n,
       50n,
-      senderViewkey.publicKey,
+      senderViewkey,
     );
     await deposit1Result.group.send();
 
@@ -72,7 +76,7 @@ describe("Velare", async () => {
       sender,
       0n,
       50n,
-      senderViewkey.publicKey,
+      senderViewkey,
     );
     await deposit2Result.group.send();
 
@@ -103,7 +107,7 @@ describe("Velare", async () => {
       inUtxos,
       [30n, 70n],
       [velareAddr, velareAddr],
-      senderViewkey.publicKey,
+      senderViewkey,
     );
     await spendResult.group.send();
 
@@ -133,7 +137,7 @@ describe("Velare", async () => {
       sender,
       0n,
       50n,
-      senderViewkey.publicKey,
+      senderViewkey,
     );
     await deposit1Result.group.send();
 
@@ -141,7 +145,7 @@ describe("Velare", async () => {
       sender,
       0n,
       50n,
-      senderViewkey.publicKey,
+      senderViewkey,
     );
     await deposit2Result.group.send();
 
@@ -176,7 +180,7 @@ describe("Velare", async () => {
       0n,
       inUtxos,
       withdrawAmount,
-      senderViewkey.publicKey,
+      senderViewkey,
     );
     await withdrawResult.group.send();
 
@@ -214,7 +218,7 @@ describe("Velare", async () => {
       sender,
       0n,
       50n,
-      senderViewkey.publicKey,
+      senderViewkey,
     );
     await deposit1Result.group.send();
 
@@ -222,7 +226,7 @@ describe("Velare", async () => {
       sender,
       0n,
       50n,
-      senderViewkey.publicKey,
+      senderViewkey,
     );
     await deposit2Result.group.send();
 
@@ -243,7 +247,7 @@ describe("Velare", async () => {
       sender,
       0n,
       inUtxos,
-      senderViewkey.publicKey,
+      senderViewkey,
     );
     await withdrawResult.group.send();
 

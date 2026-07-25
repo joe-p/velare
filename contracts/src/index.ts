@@ -18,11 +18,13 @@ const BLS12_381_SCALAR_MODULUS = BigInt(
   "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
 );
 
-export const DEFAULT_HPKE_SUITE = new CipherSuite({
+export const X25519_HPKE_SUITE = new CipherSuite({
   kem: KemId.DhkemX25519HkdfSha256,
   kdf: KdfId.HkdfSha512,
   aead: AeadId.Chacha20Poly1305,
 });
+
+export const DEFAULT_HPKE_SUITE = X25519_HPKE_SUITE;
 
 export function getHpkeSuiteId(suite: CipherSuite): Uint8Array {
   const id = new Uint8Array(6);
