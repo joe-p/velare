@@ -323,8 +323,7 @@ export class Velare extends Contract {
    * whose amount/secret they know.
    *
    * All revealed UTXOs are spent and their total amount is paid out to the
-   * caller as ALGO; nothing is re-shielded. This path stays available even if
-   * ZK usage is frozen.
+   * caller as ALGO; nothing is re-shielded. This path does not rely on ZK proofs.
    */
   withdrawAllAlgo(
     withdrawals: AlgoWithdrawal[],
