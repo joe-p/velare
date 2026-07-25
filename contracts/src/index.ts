@@ -591,4 +591,63 @@ export class VelareClient {
       changeCommitment: outputCommitments[1],
     };
   }
+
+  /**
+   * Un-shield ALGO WITHOUT a ZK proof. The caller reveals the cleartext amount
+   * and blinding secret of each owned UTXO; the contract recomputes each MiMC
+   * commitment and requires the corresponding UTXO box to exist. All revealed
+   * UTXOs are spent and their total value is paid out to `sender` as ALGO.
+   */
+  async composeWithdrawAllGroup(
+    sender: algosdk.Address,
+    asset: bigint,
+    inUtxos: Array<{ amount: bigint; secret: bigint }>,
+    viewPublic: Uint8Array,
+  ) {
+    const group = this.appClient.newGroup();
+
+    if (asset !== 0n) {
+      throw new Error("withdrawAllAlgo only supports ALGO (asset 0)");
+    }
+
+    const hpkeSuite = getHpkeSuiteId(DEFAULT_HPKE_SUITE);
+
+    const spender = computeVelareAddress(
+      sender,
+      DEFAULT_HPKE_SUITE,
+      viewPublic,
+    );
+
+    // The commitments the contract will recompute and look up as UTXO boxes
+    const inputCommitments = inUtxos.map((u) =>
+      calculateCommitment({
+        claimer: spender,
+        asset,
+        amount: u.amount,
+        secret: u.secret,
+      }),
+    );
+
+    const total = inUtxos.reduce((acc, u) => acc + u.amount, 0n);
+
+    group.withdrawAllAlgo({
+      sender,
+      args: {
+        withdrawals: inUtxos.map((u) => [u.amount, u.secret]),
+        hpkeSuite,
+        viewKey: viewPublic,
+      },
+      // Covers the inner txns issued by withdrawAllAlgo: ensureBudget op-ups for
+      // the per-UTXO MiMC recomputation (~4000 budget each) plus the MBR refund
+      // and the payout payment.
+      extraFee: microAlgos(BigInt(inUtxos.length) * 8_000n + 4_000n),
+    });
+
+    return {
+      group,
+      spender,
+      inputCommitments,
+      total,
+    };
+  }
 }
