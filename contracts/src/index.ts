@@ -21,7 +21,11 @@ type KemCosts = {
 };
 
 const X25519_COSTS: KemCosts = {
-  mbrPerUtxo: 63_300n,
+  // The HPKE ciphertext seals a 48-byte payload (asset + amount + secret), so
+  // the AEAD ciphertext is 64 bytes (48 + 16-byte Poly1305 tag). Sealing only
+  // the 32-byte secret would be 16 bytes smaller, i.e. 16 * 400 = 6_400
+  // microAlgos less box MBR per UTXO.
+  mbrPerUtxo: 69_700n,
   mbrPerAddress: 45_300n,
   extraFeePerUtxo: 0n,
 };
@@ -67,6 +71,54 @@ export function getHpkeSuiteId(suite: CipherSuite): Uint8Array {
   view.setUint16(2, suite.kdf.id, false); // big-endian
   view.setUint16(4, suite.aead.id, false); // big-endian
   return id;
+}
+
+/**
+ * Layout of the plaintext HPKE-sealed to the receiver's view key. The cleartext
+ * asset id and amount are carried alongside the blinding secret so the receiver
+ * can reconstruct the note commitment (MiMC(receiver, asset, amount, secret))
+ * without brute-forcing the amount out of the one-way commitment.
+ *
+ * [ asset: u64 big-endian (8) ][ amount: u64 big-endian (8) ][ secret: 32 ] = 48 bytes
+ */
+export const HPKE_PAYLOAD_LENGTH = 48;
+
+export function packHpkePayload(
+  asset: bigint,
+  amount: bigint,
+  secret: Uint8Array,
+): Uint8Array {
+  if (secret.length !== 32) {
+    throw new Error(`secret must be 32 bytes, got ${secret.length}`);
+  }
+  const payload = new Uint8Array(HPKE_PAYLOAD_LENGTH);
+  const view = new DataView(payload.buffer);
+  view.setBigUint64(0, asset, false); // big-endian
+  view.setBigUint64(8, amount, false); // big-endian
+  payload.set(secret, 16);
+  return payload;
+}
+
+export function unpackHpkePayload(payload: Uint8Array): {
+  asset: bigint;
+  amount: bigint;
+  secret: Uint8Array;
+} {
+  if (payload.length !== HPKE_PAYLOAD_LENGTH) {
+    throw new Error(
+      `HPKE payload must be ${HPKE_PAYLOAD_LENGTH} bytes, got ${payload.length}`,
+    );
+  }
+  const view = new DataView(
+    payload.buffer,
+    payload.byteOffset,
+    payload.byteLength,
+  );
+  return {
+    asset: view.getBigUint64(0, false),
+    amount: view.getBigUint64(8, false),
+    secret: payload.slice(16, 48),
+  };
 }
 
 export function addressInScalarField(addr: Uint8Array): bigint {
@@ -209,7 +261,7 @@ export class VelareClient {
       {
         recipientPublicKey: await suite.kem.deserializePublicKey(viewPublic),
       },
-      secret,
+      packHpkePayload(asset, amount, secret),
     );
 
     const secretBigint =
@@ -332,7 +384,7 @@ export class VelareClient {
         {
           recipientPublicKey: await suite.kem.deserializePublicKey(viewPublic),
         },
-        secret,
+        packHpkePayload(asset, outAmounts[i], secret),
       );
 
       outHpkeData.push({
@@ -503,7 +555,7 @@ export class VelareClient {
         {
           recipientPublicKey: await suite.kem.deserializePublicKey(viewPublic),
         },
-        secret,
+        packHpkePayload(asset, outAmounts[i], secret),
       );
 
       outHpkeData.push({
