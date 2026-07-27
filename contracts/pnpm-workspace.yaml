@@ -1,4 +1,5 @@
 allowBuilds:
   esbuild: true
+  algosdk: true
 overrides:
   algosdk: npm:@joe-p/algosdk@3.7.0-beta.2
