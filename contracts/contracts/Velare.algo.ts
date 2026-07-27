@@ -138,11 +138,22 @@ export class Velare extends Contract {
     this.zkFrozen.value = false;
   }
 
-  freezeZk() {
-    assert(Txn.sender === Txn.applicationId.creator, "only creator can freeze");
+  /**
+   * Enable or disable the ZK-dependent methods. Only the creator may call this.
+   *
+   * Freezing is reversible on purpose: if the switch were one-way, a premature
+   * or mistaken freeze would permanently force every user through the
+   * balance-revealing `withdrawAllAlgo` path.
+   */
+  setZkFrozen(frozen: boolean) {
+    assert(
+      Txn.sender === Txn.applicationId.creator,
+      "only creator can set zkFrozen",
+    );
+    this.zkFrozen.value = frozen;
   }
 
-  assertZkIsNotFrozen() {
+  private assertZkIsNotFrozen() {
     assert(this.zkFrozen.value === false, "ZK is frozen");
   }
 
@@ -178,9 +189,13 @@ export class Velare extends Contract {
     this.addressInfo(receiver).value = clone(expandedVelareAddr);
     const boxMbr: uint64 = Global.currentApplicationAddress.minBalance - preMbr;
 
+    // `depositTxn.amount` covers both the shielded value and the box MBR the
+    // boxes above just locked up, so the mintable value is the payment minus
+    // that MBR. Adding it instead would let a depositor mint 2*boxMbr of value
+    // they never funded.
     assert(
-      amount.asBigUint() <= BigUint(depositTxn.amount + boxMbr),
-      "UTXO amount should be less than or equal to deposit amount + boxMbr",
+      amount.asBigUint() <= BigUint(depositTxn.amount - boxMbr),
+      "UTXO amount should be less than or equal to deposit amount - boxMbr",
     );
   }
 
@@ -224,6 +239,10 @@ export class Velare extends Contract {
         spender,
       "UTXO receiver should be the depositor",
     );
+
+    // The circuit only proves in0 + in1 == out0 + out1, so without this the
+    // same UTXO could be supplied twice and its value counted twice
+    assert(in0.asBigUint() !== in1.asBigUint(), "input UTXOs must be distinct");
 
     const inKey0 = utxoKey(spender, asset, in0);
     const inKey1 = utxoKey(spender, asset, in1);
@@ -312,6 +331,10 @@ export class Velare extends Contract {
       "revealed amount and secret must open the withdrawal output commitment",
     );
 
+    // The circuit only proves in0 + in1 == out0 + out1, so without this the
+    // same UTXO could be supplied twice and its value counted twice
+    assert(in0.asBigUint() !== in1.asBigUint(), "input UTXOs must be distinct");
+
     const inKey0 = utxoKey(spender, asset, in0);
     const inKey1 = utxoKey(spender, asset, in1);
     const changeKey = utxoKey(receivers1, asset, out1);
@@ -355,7 +378,13 @@ export class Velare extends Contract {
       viewKey,
     });
 
-    const keysToDelete: UtxoKey[] = [];
+    // Each UTXO box is deleted inside the loop rather than batched up
+    // afterwards. Deleting as we go is what makes a repeated withdrawal
+    // impossible: the second copy's existence check fails because the first
+    // copy already removed the box. Batching the deletions would let the same
+    // (amount, secret) pair pass `exists` twice and be counted twice in
+    // `total`, while the duplicate `delete()` silently no-ops.
+    const preMbr = Global.currentApplicationAddress.minBalance;
     let total: uint64 = 0;
 
     for (const withdrawal of clone(withdrawals)) {
@@ -378,14 +407,19 @@ export class Velare extends Contract {
         "revealed amount and secret must open an existing UTXO commitment",
       );
 
-      keysToDelete.push(key);
+      this.utxo(key).delete();
       total += withdrawal.amount;
     }
 
-    // Delete the spent UTXOs and refund their box MBR to the sender
-    this._deleteUtxos(keysToDelete);
+    const postMbr: uint64 = Global.currentApplicationAddress.minBalance;
 
-    // Pay out the total un-shielded amount
-    itxn.payment({ receiver: Txn.sender, amount: total }).submit();
+    // Pay out the total un-shielded amount plus the freed box MBR in a single
+    // inner transaction
+    itxn
+      .payment({
+        receiver: Txn.sender,
+        amount: total + (preMbr - postMbr),
+      })
+      .submit();
   }
 }

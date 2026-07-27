@@ -1,11 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
   HPKE_PAYLOAD_LENGTH,
+  openUtxoNote,
   packHpkePayload,
   unpackHpkePayload,
   X25519_HPKE_SUITE,
   XWING_HPKE_SUITE,
 } from "../src";
+import { calculateCommitment } from "../../circuits/src";
 import { CipherSuite, KemId } from "hpke-js";
 
 function getKemName(suite: CipherSuite) {
@@ -73,6 +75,77 @@ describe("HPKE payload", () => {
       expect(note.asset).toBe(asset);
       expect(note.amount).toBe(amount);
       expect(note.secret).toEqual(secret);
+    });
+
+    it(`openUtxoNote validates the note against the commitment (${getKemName(suite)})`, async () => {
+      const { publicKey, privateKey } = await suite.kem.generateKeyPair();
+      const viewPublic = new Uint8Array(
+        await suite.kem.serializePublicKey(publicKey),
+      );
+
+      const receiver = 12345n;
+      const asset = 0n;
+      const amount = 5n;
+      const rawSecret = crypto.getRandomValues(new Uint8Array(32));
+      const secret =
+        BigInt("0x" + Buffer.from(rawSecret).toString("hex")) %
+        BigInt(
+          "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
+        );
+
+      const { enc, ct } = await suite.seal(
+        {
+          recipientPublicKey: await suite.kem.deserializePublicKey(viewPublic),
+        },
+        packHpkePayload(asset, amount, rawSecret),
+      );
+
+      const commitment = calculateCommitment({
+        claimer: receiver,
+        asset,
+        amount,
+        secret,
+      });
+
+      const opened = await openUtxoNote({
+        suite,
+        viewPrivateKey: privateKey,
+        encapsulatedKey: new Uint8Array(enc),
+        ciphertext: new Uint8Array(ct),
+        receiver,
+        commitment,
+      });
+
+      expect(opened).toBeDefined();
+      expect(opened!.asset).toBe(asset);
+      expect(opened!.amount).toBe(amount);
+      expect(opened!.secret).toBe(secret);
+
+      // A sender who seals values that disagree with the committed ones must not
+      // produce a note the receiver accepts
+      expect(
+        await openUtxoNote({
+          suite,
+          viewPrivateKey: privateKey,
+          encapsulatedKey: new Uint8Array(enc),
+          ciphertext: new Uint8Array(ct),
+          receiver,
+          commitment: commitment + 1n,
+        }),
+      ).toBeUndefined();
+
+      // A UTXO sealed to somebody else's view key is not openable
+      const other = await suite.kem.generateKeyPair();
+      expect(
+        await openUtxoNote({
+          suite,
+          viewPrivateKey: other.privateKey,
+          encapsulatedKey: new Uint8Array(enc),
+          ciphertext: new Uint8Array(ct),
+          receiver,
+          commitment,
+        }),
+      ).toBeUndefined();
     });
   });
 });

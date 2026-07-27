@@ -17,32 +17,54 @@ type KemCosts = {
   mbrPerUtxo: bigint;
   /** Box MBR for a single addressInfo box (key + ExpandedVelareAddress value) */
   mbrPerAddress: bigint;
+  /**
+   * Padding for the size-proportional component of the group fee attributable
+   * to one KEM-sized payload. See the derivation in `getKemCosts`.
+   */
   extraFeePerUtxo: bigint;
 };
 
-const X25519_COSTS: KemCosts = {
-  // The HPKE ciphertext seals a 48-byte payload (asset + amount + secret), so
-  // the AEAD ciphertext is 64 bytes (48 + 16-byte Poly1305 tag). Sealing only
-  // the 32-byte secret would be 16 bytes smaller, i.e. 16 * 400 = 6_400
-  // microAlgos less box MBR per UTXO.
-  mbrPerUtxo: 69_700n,
-  mbrPerAddress: 45_300n,
-  extraFeePerUtxo: 0n,
-};
+/** Flat per-box MBR component */
+const BOX_FLAT_MBR = 2_500n;
+/** Per-byte (key + value) MBR component */
+const BOX_BYTE_MBR = 400n;
 
-const XWING_COSTS: KemCosts = {
-  // X-Wing's encapsulated key is 1088 bytes larger than X25519's (ML-KEM-768
-  // ciphertext 1088B + X25519 ephemeral 32B = 1120B vs 32B), which costs an
-  // extra 1088 * 400 = 435_200 microAlgos of box MBR per UTXO.
-  mbrPerUtxo: X25519_COSTS.mbrPerUtxo + 435_200n,
-  // X-Wing's view key (public key) is 1184 bytes larger than X25519's
-  // (ML-KEM-768 encapsulation key 1184B + X25519 32B = 1216B vs 32B), which
-  // costs an extra 1184 * 400 = 473_600 microAlgos of box MBR per address.
-  mbrPerAddress: X25519_COSTS.mbrPerAddress + 473_600n,
-  extraFeePerUtxo: 155_000n,
-};
+const boxMbr = (keyBytes: number, valueBytes: number) =>
+  BOX_FLAT_MBR + BOX_BYTE_MBR * BigInt(keyBytes + valueBytes);
 
-const BLS12_381_SCALAR_MODULUS = BigInt(
+/**
+ * Box MBR and fee padding are pure functions of the KEM's serialized sizes, so
+ * they are derived rather than tabulated. This keeps the client as crypto-agile
+ * as the contract, which accepts any HPKE suite that fits the AVM size limits.
+ */
+export function getKemCosts(suite: CipherSuite): KemCosts {
+  const encSize = suite.kem.encSize;
+  const viewKeySize = suite.kem.publicKeySize;
+  // The HPKE ciphertext seals HPKE_PAYLOAD_LENGTH bytes (asset + amount +
+  // secret) and the AEAD appends its authentication tag
+  const ctSize = HPKE_PAYLOAD_LENGTH + suite.aead.tagSize;
+
+  return {
+    // key:   "u" (1) + UtxoKey{ byte[31], uint256 } (63)
+    // value: HpkeData{ byte[], byte[] } => 2 ARC-4 offsets (4) plus each
+    //        dynamic field's 2-byte length prefix
+    mbrPerUtxo: boxMbr(1 + 63, 4 + (2 + encSize) + (2 + ctSize)),
+    // key:   "a" (1) + VelareAddress uint256 (32)
+    // value: ExpandedVelareAddress{ address (32), byte[6], byte[] } => 38-byte
+    //        head plus a 2-byte offset, then the view key's 2-byte length prefix
+    mbrPerAddress: boxMbr(1 + 32, 38 + 2 + (2 + viewKeySize)),
+    // Consensus charges a fee component proportional to transaction and box
+    // bytes on top of the flat per-transaction min fee. Measured empirically: a
+    // deposit group carrying X-Wing keys (2272 KEM-dependent bytes more than
+    // X25519) needed ~156 microAlgos more than the flat minimum, i.e. roughly
+    // 0.07 microAlgos per byte. Charging 1 microAlgo per KEM-dependent byte is
+    // a deliberately conservative over-estimate (~14x headroom) that stays
+    // negligible in absolute terms and scales to any KEM.
+    extraFeePerUtxo: BigInt(encSize + viewKeySize),
+  };
+}
+
+export const BLS12_381_SCALAR_MODULUS = BigInt(
   "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
 );
 
@@ -61,12 +83,6 @@ export const XWING_HPKE_SUITE = new CipherSuite({
   aead: AeadId.Chacha20Poly1305,
 });
 
-export function getKemCosts(suite: CipherSuite): KemCosts {
-  if (suite.kem.id === KemId.XWing) return XWING_COSTS;
-  if (suite.kem.id === KemId.DhkemX25519HkdfSha256) return X25519_COSTS;
-  throw Error(`Unsupported KEM ${suite.kem}`);
-}
-
 export function getHpkeSuiteId(suite: CipherSuite): Uint8Array {
   const id = new Uint8Array(6);
   const view = new DataView(id.buffer);
@@ -83,6 +99,11 @@ export function getHpkeSuiteId(suite: CipherSuite): Uint8Array {
  * without brute-forcing the amount out of the one-way commitment.
  *
  * [ asset: u64 big-endian (8) ][ amount: u64 big-endian (8) ][ secret: 32 ] = 48 bytes
+ *
+ * Note that `secret` is carried as the raw 32 bytes, while the commitment is
+ * computed over `secret mod BLS12_381_SCALAR_MODULUS`. A receiver reading this
+ * payload must apply the same reduction before recomputing the commitment;
+ * `openUtxoNote` does this for you.
  */
 export const HPKE_PAYLOAD_LENGTH = 48;
 
@@ -121,6 +142,72 @@ export function unpackHpkePayload(payload: Uint8Array): {
     asset: view.getBigUint64(0, false),
     amount: view.getBigUint64(8, false),
     secret: payload.slice(16, 48),
+  };
+}
+
+/**
+ * Receiver side of the HPKE payload: decrypt a UTXO's HPKE data with the view
+ * private key and validate the recovered note against the commitment the
+ * contract actually stored.
+ *
+ * The validation matters because the sealed (asset, amount) are chosen by the
+ * sender and are not authenticated against anything on-chain by HPKE alone. A
+ * sender who seals values that disagree with the committed ones produces a note
+ * the receiver can never spend, so a receiver must treat a commitment mismatch
+ * as "this UTXO is not openable by me" rather than trusting the plaintext.
+ *
+ * Returns the note on success, or `undefined` if the payload does not open the
+ * given commitment.
+ */
+export async function openUtxoNote(opts: {
+  suite: CipherSuite;
+  /** The view key pair's private key */
+  viewPrivateKey: CryptoKey;
+  encapsulatedKey: Uint8Array;
+  ciphertext: Uint8Array;
+  /** The Velare address the UTXO is held under */
+  receiver: bigint;
+  /** The committed UTXO value, i.e. the `utxo` component of the box key */
+  commitment: bigint;
+}): Promise<
+  | { asset: bigint; amount: bigint; secret: bigint; rawSecret: Uint8Array }
+  | undefined
+> {
+  let note: { asset: bigint; amount: bigint; secret: Uint8Array };
+  try {
+    const plaintext = new Uint8Array(
+      await opts.suite.open(
+        {
+          recipientKey: opts.viewPrivateKey,
+          enc: opts.encapsulatedKey as unknown as ArrayBuffer,
+        },
+        opts.ciphertext as unknown as ArrayBuffer,
+      ),
+    );
+    note = unpackHpkePayload(plaintext);
+  } catch {
+    // Not sealed to this view key, or malformed
+    return undefined;
+  }
+
+  const secret =
+    BigInt("0x" + Buffer.from(note.secret).toString("hex")) %
+    BLS12_381_SCALAR_MODULUS;
+
+  const expected = calculateCommitment({
+    claimer: opts.receiver,
+    asset: note.asset,
+    amount: note.amount,
+    secret,
+  });
+
+  if (expected !== opts.commitment) return undefined;
+
+  return {
+    asset: note.asset,
+    amount: note.amount,
+    secret,
+    rawSecret: note.secret,
   };
 }
 
@@ -249,12 +336,47 @@ export class VelareClient {
     return signalVerifier;
   }
 
+  /**
+   * Freeze or unfreeze the ZK-dependent methods (`depositAlgo`, `spend`,
+   * `withdrawAlgo`). Creator only. While frozen, `withdrawAllAlgo` is the only
+   * way to move funds, and it requires revealing balances.
+   */
+  async setZkFrozen(creator: algosdk.Address, frozen: boolean) {
+    return this.appClient.send.setZkFrozen({
+      sender: creator,
+      args: { frozen },
+      extraFee: microAlgos(FALCON_FEE),
+    });
+  }
+
+  async getZkFrozen(): Promise<boolean> {
+    // The generated accessor surfaces the AVM bool as a bigint
+    return ((await this.appClient.state.global.zkFrozen()) ?? 0n) !== 0n;
+  }
+
+  /**
+   * Whether the `addressInfo` box for a Velare address is already funded. The
+   * box is written on every deposit but only locks up MBR the first time, so a
+   * repeat deposit must not pay for it again — that overpayment has no refund
+   * path and would be stranded in the app account.
+   */
+  private async addressInfoExists(velareAddr: bigint): Promise<boolean> {
+    try {
+      return (
+        (await this.appClient.state.box.addressInfo.value(velareAddr)) !==
+        undefined
+      );
+    } catch {
+      return false;
+    }
+  }
+
   async composeDepositGroup(
     sender: algosdk.Address,
     asset: bigint,
     amount: bigint,
     viewPublic: Uint8Array,
-    suite: CipherSuite,
+    suite: CipherSuite = XWING_HPKE_SUITE,
   ) {
     const group = this.appClient.newGroup();
 
@@ -303,6 +425,12 @@ export class VelareClient {
         });
 
         const costs = getKemCosts(suite);
+        // Only the first deposit to a given Velare address locks up the
+        // addressInfo box MBR; later ones rewrite the existing box for free.
+        const addressMbr = (await this.addressInfoExists(receiver))
+          ? 0n
+          : costs.mbrPerAddress;
+
         if (asset === 0n) {
           group.depositAlgo({
             sender,
@@ -313,9 +441,7 @@ export class VelareClient {
               depositTxn: this.algorand.createTransaction.payment({
                 sender,
                 receiver: this.appClient.appAddress,
-                amount: microAlgos(
-                  amount + costs.mbrPerUtxo + costs.mbrPerAddress,
-                ),
+                amount: microAlgos(amount + costs.mbrPerUtxo + addressMbr),
                 extraFee: microAlgos(FALCON_FEE),
               }),
               hpkeData: {
@@ -356,7 +482,7 @@ export class VelareClient {
     outAmounts: bigint[],
     outReceivers: bigint[],
     viewPublic: Uint8Array,
-    suite: CipherSuite,
+    suite: CipherSuite = XWING_HPKE_SUITE,
   ) {
     const group = this.appClient.newGroup();
 
@@ -526,7 +652,7 @@ export class VelareClient {
     }>,
     withdrawAmount: bigint,
     viewPublic: Uint8Array,
-    suite: CipherSuite,
+    suite: CipherSuite = XWING_HPKE_SUITE,
   ) {
     const group = this.appClient.newGroup();
 
@@ -548,33 +674,28 @@ export class VelareClient {
     const outAmounts = [withdrawAmount, changeAmount];
     const outReceivers = [spender, spender];
 
-    // Generate a blinding secret for each output. out0's secret is revealed to
-    // the contract; out1 is stored as a UTXO box so it also needs HPKE data.
-    const outSecrets: bigint[] = [];
-    const outHpkeData: Array<{
-      encapsulatedKey: Uint8Array;
-      ciphertext: Uint8Array;
-    }> = [];
+    // Generate a blinding secret for each output. Both are needed by the
+    // circuit, but only out1 becomes a UTXO box, so only out1 needs HPKE data —
+    // out0's amount and secret are revealed to the contract in the clear.
+    const rawSecrets = [0, 1].map(() =>
+      crypto.getRandomValues(new Uint8Array(32)),
+    );
+    const outSecrets = rawSecrets.map(
+      (s) =>
+        BigInt("0x" + Buffer.from(s).toString("hex")) %
+        BLS12_381_SCALAR_MODULUS,
+    );
 
-    for (let i = 0; i < 2; i++) {
-      const secret = crypto.getRandomValues(new Uint8Array(32));
-      const secretBigint =
-        BigInt("0x" + Buffer.from(secret).toString("hex")) %
-        BLS12_381_SCALAR_MODULUS;
-      outSecrets.push(secretBigint);
-
-      const { enc, ct } = await suite.seal(
-        {
-          recipientPublicKey: await suite.kem.deserializePublicKey(viewPublic),
-        },
-        packHpkePayload(asset, outAmounts[i], secret),
-      );
-
-      outHpkeData.push({
-        encapsulatedKey: new Uint8Array(enc),
-        ciphertext: new Uint8Array(ct),
-      });
-    }
+    const { enc, ct } = await suite.seal(
+      {
+        recipientPublicKey: await suite.kem.deserializePublicKey(viewPublic),
+      },
+      packHpkePayload(asset, outAmounts[1], rawSecrets[1]),
+    );
+    const changeHpkeData = {
+      encapsulatedKey: new Uint8Array(enc),
+      ciphertext: new Uint8Array(ct),
+    };
 
     const inputs = {
       spender,
@@ -627,6 +748,7 @@ export class VelareClient {
             sender,
             receiver: this.appClient.appAddress,
             amount: microAlgos(costs.mbrPerUtxo),
+            extraFee: microAlgos(FALCON_FEE),
           }),
         );
 
@@ -652,10 +774,7 @@ export class VelareClient {
             _proof: args.proof,
             withdrawAmount,
             withdrawSecret: outSecrets[0],
-            changeHpkeData: {
-              encapsulatedKey: outHpkeData[1].encapsulatedKey,
-              ciphertext: outHpkeData[1].ciphertext,
-            },
+            changeHpkeData,
             hpkeSuite,
             viewKey: viewPublic,
             signalValues: [
@@ -670,8 +789,11 @@ export class VelareClient {
             ],
           },
           // Covers the zk/signal lsig fees plus the op-up and payment itxns
-          // issued by withdrawAlgo (ensureBudget op-ups + MBR refund + payout)
-          extraFee: microAlgos(lsigsFee.microAlgos + 12_000n + FALCON_FEE),
+          // issued by withdrawAlgo (ensureBudget op-ups + MBR refund + payout),
+          // and the KEM-size-proportional component for the change UTXO
+          extraFee: microAlgos(
+            lsigsFee.microAlgos + 12_000n + costs.extraFeePerUtxo + FALCON_FEE,
+          ),
         });
       },
     });
@@ -681,7 +803,7 @@ export class VelareClient {
       inputs,
       inputCommitments,
       outputCommitments,
-      outHpkeData,
+      changeHpkeData,
       withdrawAmount,
       changeAmount,
       changeCommitment: outputCommitments[1],
@@ -699,7 +821,7 @@ export class VelareClient {
     asset: bigint,
     inUtxos: Array<{ amount: bigint; secret: bigint }>,
     viewPublic: Uint8Array,
-    suite: CipherSuite,
+    suite: CipherSuite = XWING_HPKE_SUITE,
   ) {
     const group = this.appClient.newGroup();
 
@@ -721,7 +843,15 @@ export class VelareClient {
       }),
     );
 
+    // The contract rejects duplicates, but catch it here too so the caller gets
+    // a clear error instead of a failed transaction
+    const seen = new Set(inputCommitments);
+    if (seen.size !== inputCommitments.length) {
+      throw new Error("duplicate UTXOs in withdrawAll");
+    }
+
     const total = inUtxos.reduce((acc, u) => acc + u.amount, 0n);
+    const costs = getKemCosts(suite);
 
     group.withdrawAllAlgo({
       sender,
@@ -731,9 +861,15 @@ export class VelareClient {
         viewKey: viewPublic,
       },
       // Covers the inner txns issued by withdrawAllAlgo: ensureBudget op-ups for
-      // the per-UTXO MiMC recomputation (~4000 budget each) plus the MBR refund
-      // and the payout payment.
-      extraFee: microAlgos(BigInt(inUtxos.length) * 8_000n + 4_000n),
+      // the per-UTXO MiMC recomputation (~4000 budget each) plus the combined
+      // MBR-refund/payout payment, the KEM-size-proportional component for the
+      // view key carried in the args, and this call's FALCON signature.
+      extraFee: microAlgos(
+        BigInt(inUtxos.length) * 8_000n +
+          4_000n +
+          costs.extraFeePerUtxo +
+          FALCON_FEE,
+      ),
     });
 
     return {
