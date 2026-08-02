@@ -371,13 +371,19 @@ export class VelareClient {
     }
   }
 
-  async composeDepositGroup(
-    sender: algosdk.Address,
-    asset: bigint,
-    amount: bigint,
-    viewPublic: Uint8Array,
-    suite: CipherSuite = XWING_HPKE_SUITE,
-  ) {
+  async composeDepositGroup({
+    sender,
+    asset,
+    amount,
+    viewPublic,
+    suite = XWING_HPKE_SUITE,
+  }: {
+    sender: algosdk.Address;
+    asset: bigint;
+    amount: bigint;
+    viewPublic: Uint8Array;
+    suite?: CipherSuite;
+  }) {
     const group = this.appClient.newGroup();
 
     const secret = crypto.getRandomValues(new Uint8Array(32));
@@ -470,20 +476,28 @@ export class VelareClient {
     };
   }
 
-  async composeSpendGroup(
-    sender: algosdk.Address,
-    asset: bigint,
+  async composeSpendGroup({
+    sender,
+    asset,
+    inUtxos,
+    outAmounts,
+    outReceivers,
+    viewPublic,
+    suite = XWING_HPKE_SUITE,
+  }: {
+    sender: algosdk.Address;
+    asset: bigint;
     inUtxos: Array<{
       amount: bigint;
       secret: bigint;
       encapsulatedKey: Uint8Array;
       ciphertext: Uint8Array;
-    }>,
-    outAmounts: bigint[],
-    outReceivers: bigint[],
-    viewPublic: Uint8Array,
-    suite: CipherSuite = XWING_HPKE_SUITE,
-  ) {
+    }>;
+    outAmounts: bigint[];
+    outReceivers: bigint[];
+    viewPublic: Uint8Array;
+    suite?: CipherSuite;
+  }) {
     const group = this.appClient.newGroup();
 
     if (inUtxos.length !== 2) {
@@ -641,19 +655,26 @@ export class VelareClient {
    * The first output (out0) is withdrawn to `sender` as ALGO; the remaining
    * value is re-shielded as a change UTXO (out1) back to the same address.
    */
-  async composeWithdrawGroup(
-    sender: algosdk.Address,
-    asset: bigint,
+  async composeWithdrawGroup({
+    sender,
+    asset,
+    inUtxos,
+    withdrawAmount,
+    viewPublic,
+    suite = XWING_HPKE_SUITE,
+  }: {
+    sender: algosdk.Address;
+    asset: bigint;
     inUtxos: Array<{
       amount: bigint;
       secret: bigint;
       encapsulatedKey: Uint8Array;
       ciphertext: Uint8Array;
-    }>,
-    withdrawAmount: bigint,
-    viewPublic: Uint8Array,
-    suite: CipherSuite = XWING_HPKE_SUITE,
-  ) {
+    }>;
+    withdrawAmount: bigint;
+    viewPublic: Uint8Array;
+    suite?: CipherSuite;
+  }) {
     const group = this.appClient.newGroup();
 
     if (inUtxos.length !== 2) {
@@ -816,13 +837,19 @@ export class VelareClient {
    * commitment and requires the corresponding UTXO box to exist. All revealed
    * UTXOs are spent and their total value is paid out to `sender` as ALGO.
    */
-  async composeWithdrawAllGroup(
-    sender: algosdk.Address,
-    asset: bigint,
-    inUtxos: Array<{ amount: bigint; secret: bigint }>,
-    viewPublic: Uint8Array,
-    suite: CipherSuite = XWING_HPKE_SUITE,
-  ) {
+  async composeWithdrawAllGroup({
+    sender,
+    asset,
+    inUtxos,
+    viewPublic,
+    suite = XWING_HPKE_SUITE,
+  }: {
+    sender: algosdk.Address;
+    asset: bigint;
+    inUtxos: Array<{ amount: bigint; secret: bigint }>;
+    viewPublic: Uint8Array;
+    suite?: CipherSuite;
+  }) {
     const group = this.appClient.newGroup();
 
     if (asset !== 0n) {

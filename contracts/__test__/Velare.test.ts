@@ -56,13 +56,13 @@ describe("Velare", async () => {
       );
 
       it("should handle deposit", async () => {
-        const { group, enc, ct } = await client.composeDepositGroup(
+        const { group, enc, ct } = await client.composeDepositGroup({
           sender,
-          0n,
-          5n,
-          senderViewkey,
+          asset: 0n,
+          amount: 5n,
+          viewPublic: senderViewkey,
           suite,
-        );
+        });
         await group.send();
 
         const utxos = await client.appClient.state.box.utxo.getMap();
@@ -86,23 +86,23 @@ describe("Velare", async () => {
         const velareAddr = computeVelareAddress(sender, suite, senderViewkey);
 
         // Create first deposit (50n to sender)
-        const deposit1Result = await client.composeDepositGroup(
+        const deposit1Result = await client.composeDepositGroup({
           sender,
-          0n,
-          50n,
-          senderViewkey,
+          asset: 0n,
+          amount: 50n,
+          viewPublic: senderViewkey,
           suite,
-        );
+        });
         await deposit1Result.group.send();
 
         // Create second deposit (50n to sender)
-        const deposit2Result = await client.composeDepositGroup(
+        const deposit2Result = await client.composeDepositGroup({
           sender,
-          0n,
-          50n,
-          senderViewkey,
+          asset: 0n,
+          amount: 50n,
+          viewPublic: senderViewkey,
           suite,
-        );
+        });
         await deposit2Result.group.send();
 
         // Verify we have 2 UTXOs
@@ -126,15 +126,15 @@ describe("Velare", async () => {
         ];
 
         // Spend both UTXOs: split 100n into 30n and 70n
-        const spendResult = await client.composeSpendGroup(
+        const spendResult = await client.composeSpendGroup({
           sender,
-          0n,
+          asset: 0n,
           inUtxos,
-          [30n, 70n],
-          [velareAddr, velareAddr],
-          senderViewkey,
+          outAmounts: [30n, 70n],
+          outReceivers: [velareAddr, velareAddr],
+          viewPublic: senderViewkey,
           suite,
-        );
+        });
         await spendResult.group.send();
 
         // Verify old UTXOs are deleted and 2 new ones exist
@@ -159,22 +159,22 @@ describe("Velare", async () => {
 
       it("should handle withdraw", async () => {
         // Create two deposits (50n each) to sender
-        const deposit1Result = await client.composeDepositGroup(
+        const deposit1Result = await client.composeDepositGroup({
           sender,
-          0n,
-          50n,
-          senderViewkey,
+          asset: 0n,
+          amount: 50n,
+          viewPublic: senderViewkey,
           suite,
-        );
+        });
         await deposit1Result.group.send();
 
-        const deposit2Result = await client.composeDepositGroup(
+        const deposit2Result = await client.composeDepositGroup({
           sender,
-          0n,
-          50n,
-          senderViewkey,
+          asset: 0n,
+          amount: 50n,
+          viewPublic: senderViewkey,
           suite,
-        );
+        });
         await deposit2Result.group.send();
 
         let utxos = await client.appClient.state.box.utxo.getMap();
@@ -203,14 +203,14 @@ describe("Velare", async () => {
           await algorand.account.getInformation(appAddress)
         ).balance.microAlgos;
 
-        const withdrawResult = await client.composeWithdrawGroup(
+        const withdrawResult = await client.composeWithdrawGroup({
           sender,
-          0n,
+          asset: 0n,
           inUtxos,
           withdrawAmount,
-          senderViewkey,
+          viewPublic: senderViewkey,
           suite,
-        );
+        });
         await withdrawResult.group.send();
 
         // The two input UTXOs are deleted and a single change UTXO remains
@@ -244,22 +244,22 @@ describe("Velare", async () => {
 
       it("should handle withdrawAll without ZK", async () => {
         // Create two deposits (50n each) to sender
-        const deposit1Result = await client.composeDepositGroup(
+        const deposit1Result = await client.composeDepositGroup({
           sender,
-          0n,
-          50n,
-          senderViewkey,
+          asset: 0n,
+          amount: 50n,
+          viewPublic: senderViewkey,
           suite,
-        );
+        });
         await deposit1Result.group.send();
 
-        const deposit2Result = await client.composeDepositGroup(
+        const deposit2Result = await client.composeDepositGroup({
           sender,
-          0n,
-          50n,
-          senderViewkey,
+          asset: 0n,
+          amount: 50n,
+          viewPublic: senderViewkey,
           suite,
-        );
+        });
         await deposit2Result.group.send();
 
         let utxos = await client.appClient.state.box.utxo.getMap();
@@ -275,13 +275,13 @@ describe("Velare", async () => {
           await algorand.account.getInformation(appAddress)
         ).balance.microAlgos;
 
-        const withdrawResult = await client.composeWithdrawAllGroup(
+        const withdrawResult = await client.composeWithdrawAllGroup({
           sender,
-          0n,
+          asset: 0n,
           inUtxos,
-          senderViewkey,
+          viewPublic: senderViewkey,
           suite,
-        );
+        });
         await withdrawResult.group.send();
 
         // Both UTXOs are spent, none remain
@@ -328,34 +328,34 @@ describe("Velare", async () => {
 
     it("blocks the ZK methods and allows withdrawAll, then unfreezes", async () => {
       // Fund two UTXOs while ZK is still available
-      const deposit1 = await client.composeDepositGroup(
+      const deposit1 = await client.composeDepositGroup({
         sender,
-        0n,
-        50n,
-        viewKey,
+        asset: 0n,
+        amount: 50n,
+        viewPublic: viewKey,
         suite,
-      );
+      });
       await deposit1.group.send();
-      const deposit2 = await client.composeDepositGroup(
+      const deposit2 = await client.composeDepositGroup({
         sender,
-        0n,
-        50n,
-        viewKey,
+        asset: 0n,
+        amount: 50n,
+        viewPublic: viewKey,
         suite,
-      );
+      });
       await deposit2.group.send();
 
       await client.setZkFrozen(sender, true);
       expect(await client.getZkFrozen()).toBe(true);
 
       // Every ZK-dependent entry point is now closed
-      const frozenDeposit = await client.composeDepositGroup(
+      const frozenDeposit = await client.composeDepositGroup({
         sender,
-        0n,
-        5n,
-        viewKey,
+        asset: 0n,
+        amount: 5n,
+        viewPublic: viewKey,
         suite,
-      );
+      });
       await expect(frozenDeposit.group.send()).rejects.toThrow(/ZK is frozen/);
 
       const inUtxos = [
@@ -373,41 +373,41 @@ describe("Velare", async () => {
         },
       ];
 
-      const frozenSpend = await client.composeSpendGroup(
+      const frozenSpend = await client.composeSpendGroup({
         sender,
-        0n,
+        asset: 0n,
         inUtxos,
-        [30n, 70n],
-        [
+        outAmounts: [30n, 70n],
+        outReceivers: [
           computeVelareAddress(sender, suite, viewKey),
           computeVelareAddress(sender, suite, viewKey),
         ],
-        viewKey,
+        viewPublic: viewKey,
         suite,
-      );
+      });
       await expect(frozenSpend.group.send()).rejects.toThrow(/ZK is frozen/);
 
-      const frozenWithdraw = await client.composeWithdrawGroup(
+      const frozenWithdraw = await client.composeWithdrawGroup({
         sender,
-        0n,
+        asset: 0n,
         inUtxos,
-        70n,
-        viewKey,
+        withdrawAmount: 70n,
+        viewPublic: viewKey,
         suite,
-      );
+      });
       await expect(frozenWithdraw.group.send()).rejects.toThrow(/ZK is frozen/);
 
       // withdrawAll is the escape hatch and must still work
-      const escape = await client.composeWithdrawAllGroup(
+      const escape = await client.composeWithdrawAllGroup({
         sender,
-        0n,
-        [
+        asset: 0n,
+        inUtxos: [
           { amount: 50n, secret: deposit1.inputs.out_secrets[0] },
           { amount: 50n, secret: deposit2.inputs.out_secrets[0] },
         ],
-        viewKey,
+        viewPublic: viewKey,
         suite,
-      );
+      });
       await escape.group.send();
       expect((await client.appClient.state.box.utxo.getMap()).size).toBe(0);
 
@@ -415,13 +415,13 @@ describe("Velare", async () => {
       await client.setZkFrozen(sender, false);
       expect(await client.getZkFrozen()).toBe(false);
 
-      const afterUnfreeze = await client.composeDepositGroup(
+      const afterUnfreeze = await client.composeDepositGroup({
         sender,
-        0n,
-        5n,
-        viewKey,
+        asset: 0n,
+        amount: 5n,
+        viewPublic: viewKey,
         suite,
-      );
+      });
       await afterUnfreeze.group.send();
       expect((await client.appClient.state.box.utxo.getMap()).size).toBe(1);
     }, 60_000);
@@ -506,23 +506,23 @@ describe("Velare", async () => {
     it("rejects the same UTXO spent as both inputs", async () => {
       // The spend circuit only proves in0 + in1 == out0 + out1, so supplying the
       // same UTXO as both inputs is satisfiable and would double its value.
-      const depositA = await client.composeDepositGroup(
+      const depositA = await client.composeDepositGroup({
         sender,
-        0n,
-        50n,
-        viewKey,
+        asset: 0n,
+        amount: 50n,
+        viewPublic: viewKey,
         suite,
-      );
+      });
       await depositA.group.send();
       // A second UTXO gives the app enough free balance for the doubled outputs
       // to be affordable, so the rejection is the guard and not an MBR shortfall
-      const depositB = await client.composeDepositGroup(
+      const depositB = await client.composeDepositGroup({
         sender,
-        0n,
-        50n,
-        viewKey,
+        asset: 0n,
+        amount: 50n,
+        viewPublic: viewKey,
         suite,
-      );
+      });
       await depositB.group.send();
 
       const utxoA = {
@@ -533,27 +533,27 @@ describe("Velare", async () => {
       };
       const velareAddr = computeVelareAddress(sender, suite, viewKey);
 
-      const doubled = await client.composeSpendGroup(
+      const doubled = await client.composeSpendGroup({
         sender,
-        0n,
-        [utxoA, utxoA],
-        [50n, 50n],
-        [velareAddr, velareAddr],
-        viewKey,
+        asset: 0n,
+        inUtxos: [utxoA, utxoA],
+        outAmounts: [50n, 50n],
+        outReceivers: [velareAddr, velareAddr],
+        viewPublic: viewKey,
         suite,
-      );
+      });
       await expect(doubled.group.send()).rejects.toThrow(
         /input UTXOs must be distinct/,
       );
 
-      const doubledWithdraw = await client.composeWithdrawGroup(
+      const doubledWithdraw = await client.composeWithdrawGroup({
         sender,
-        0n,
-        [utxoA, utxoA],
-        70n,
-        viewKey,
+        asset: 0n,
+        inUtxos: [utxoA, utxoA],
+        withdrawAmount: 70n,
+        viewPublic: viewKey,
         suite,
-      );
+      });
       await expect(doubledWithdraw.group.send()).rejects.toThrow(
         /input UTXOs must be distinct/,
       );
@@ -567,21 +567,21 @@ describe("Velare", async () => {
       // profitable: the doubled payout is covered by the *other* UTXO's value,
       // which is what makes this a fund-draining double-spend rather than a
       // transaction the app simply cannot afford.
-      const depositA = await client.composeDepositGroup(
+      const depositA = await client.composeDepositGroup({
         sender,
-        0n,
-        50n,
-        viewKey,
+        asset: 0n,
+        amount: 50n,
+        viewPublic: viewKey,
         suite,
-      );
+      });
       await depositA.group.send();
-      const depositB = await client.composeDepositGroup(
+      const depositB = await client.composeDepositGroup({
         sender,
-        0n,
-        50n,
-        viewKey,
+        asset: 0n,
+        amount: 50n,
+        viewPublic: viewKey,
         suite,
-      );
+      });
       await depositB.group.send();
 
       const utxoA = { amount: 50n, secret: depositA.inputs.out_secrets[0] };
@@ -589,13 +589,13 @@ describe("Velare", async () => {
 
       // The client catches it up front
       await expect(
-        client.composeWithdrawAllGroup(
+        client.composeWithdrawAllGroup({
           sender,
-          0n,
-          [utxoA, utxoA],
-          viewKey,
+          asset: 0n,
+          inUtxos: [utxoA, utxoA],
+          viewPublic: viewKey,
           suite,
-        ),
+        }),
       ).rejects.toThrow(/duplicate/i);
 
       // ...and so does the contract, when the client check is bypassed
@@ -622,13 +622,13 @@ describe("Velare", async () => {
       ).balance.microAlgos;
 
       // Withdrawing them honestly yields exactly their face value
-      const honest = await client.composeWithdrawAllGroup(
+      const honest = await client.composeWithdrawAllGroup({
         sender,
-        0n,
-        [utxoA, utxoB],
-        viewKey,
+        asset: 0n,
+        inUtxos: [utxoA, utxoB],
+        viewPublic: viewKey,
         suite,
-      );
+      });
       await honest.group.send();
 
       const appBalanceAfter = (
