@@ -308,6 +308,7 @@ export class VelareClient {
         signalVerifier: (await this.signalVerifierLsig(algorand))
           .address()
           .toString(),
+        updateTimeDelay: 2_592_000n,
       },
     });
 

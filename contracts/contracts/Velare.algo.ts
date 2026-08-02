@@ -13,6 +13,7 @@ import {
   clone,
   itxn,
   ensureBudget,
+  Box,
 } from "@algorandfoundation/algorand-typescript";
 import { Uint256 } from "@algorandfoundation/algorand-typescript/arc4";
 import {
@@ -120,6 +121,12 @@ export class Velare extends Contract {
 
   zkFrozen = GlobalState<boolean>({ key: "f" });
 
+  updateTimeDelay = GlobalState<uint64>({ key: "td" });
+
+  updateTime = GlobalState<uint64>({ key: "t" });
+
+  updateInitiated = GlobalState<boolean>({ key: "u" });
+
   /** Map of UTXO information to the HPKE data */
   utxo = BoxMap<UtxoKey, HpkeData>({ keyPrefix: "u" });
 
@@ -127,15 +134,57 @@ export class Velare extends Contract {
     keyPrefix: "a",
   });
 
+  nextApprovalProgram = Box<bytes>({ key: "ap" });
+
+  nextClearProgram = Box<bytes>({ key: "cp" });
+
   createApplication(
     depositVerifier: Account,
     spendVerifier: Account,
     signalVerifier: Account,
+    updateTimeDelay: uint64,
   ) {
     this.depositVerifier.value = depositVerifier;
     this.spendVerifier.value = spendVerifier;
     this.signalVerifier.value = signalVerifier;
     this.zkFrozen.value = false;
+    this.updateTimeDelay.value = updateTimeDelay;
+    this.updateInitiated.value = false;
+  }
+
+  uploadNextProgram(approval: boolean, bytecode: bytes, offset: uint64) {
+    assert(
+      Txn.sender === Global.creatorAddress,
+      "next program can only be set by creator",
+    );
+    assert(!this.updateInitiated.value, "update must not already be initiated");
+    const requiredSize: uint64 = bytecode.length + offset;
+
+    const programBox = approval
+      ? this.nextApprovalProgram
+      : this.nextClearProgram;
+
+    if (!programBox.exists) {
+      programBox.create({ size: requiredSize });
+    } else if (programBox.length < requiredSize) {
+      programBox.resize(requiredSize);
+    }
+
+    programBox.replace(offset, bytecode);
+  }
+
+  initiateUpdate() {
+    assert(
+      Txn.sender === Global.creatorAddress,
+      "update can only be initiated by creator",
+    );
+    this.updateInitiated.value = true;
+    this.updateTime.value = Global.latestTimestamp + this.updateTimeDelay.value;
+  }
+
+  updateApplication() {
+    assert(Txn.approvalProgram === this.nextApprovalProgram.value);
+    assert(Txn.clearStateProgram === this.nextClearProgram.value);
   }
 
   /**
