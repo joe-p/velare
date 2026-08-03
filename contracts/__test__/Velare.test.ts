@@ -322,11 +322,11 @@ describe("Velare", async () => {
         (1).algo(),
       );
 
-      await expect(client.setZkFrozen(stranger.addr, true)).rejects.toThrow();
+      await expect(client.setZkFrozen(stranger.addr)).rejects.toThrow();
       expect(await client.getZkFrozen()).toBe(false);
     });
 
-    it("blocks the ZK methods and allows withdrawAll, then unfreezes", async () => {
+    it("blocks the ZK methods and allows withdrawAll", async () => {
       // Fund two UTXOs while ZK is still available
       const deposit1 = await client.composeDepositGroup({
         sender,
@@ -345,7 +345,7 @@ describe("Velare", async () => {
       });
       await deposit2.group.send();
 
-      await client.setZkFrozen(sender, true);
+      await client.setZkFrozen(sender);
       expect(await client.getZkFrozen()).toBe(true);
 
       // Every ZK-dependent entry point is now closed
@@ -410,20 +410,6 @@ describe("Velare", async () => {
       });
       await escape.group.send();
       expect((await client.appClient.state.box.utxo.getMap()).size).toBe(0);
-
-      // Unfreezing restores the ZK paths
-      await client.setZkFrozen(sender, false);
-      expect(await client.getZkFrozen()).toBe(false);
-
-      const afterUnfreeze = await client.composeDepositGroup({
-        sender,
-        asset: 0n,
-        amount: 5n,
-        viewPublic: viewKey,
-        suite,
-      });
-      await afterUnfreeze.group.send();
-      expect((await client.appClient.state.box.utxo.getMap()).size).toBe(1);
     }, 60_000);
   });
 

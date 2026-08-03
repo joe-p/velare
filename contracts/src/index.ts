@@ -342,10 +342,10 @@ export class VelareClient {
    * `withdrawAlgo`). Creator only. While frozen, `withdrawAllAlgo` is the only
    * way to move funds, and it requires revealing balances.
    */
-  async setZkFrozen(creator: algosdk.Address, frozen: boolean) {
+  async setZkFrozen(creator: algosdk.Address) {
     return this.appClient.send.setZkFrozen({
       sender: creator,
-      args: { frozen },
+      args: [],
       extraFee: microAlgos(FALCON_FEE),
     });
   }

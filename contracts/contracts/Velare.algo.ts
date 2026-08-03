@@ -187,19 +187,12 @@ export class Velare extends Contract {
     assert(Txn.clearStateProgram === this.nextClearProgram.value);
   }
 
-  /**
-   * Enable or disable the ZK-dependent methods. Only the creator may call this.
-   *
-   * Freezing is reversible on purpose: if the switch were one-way, a premature
-   * or mistaken freeze would permanently force every user through the
-   * balance-revealing `withdrawAllAlgo` path.
-   */
-  setZkFrozen(frozen: boolean) {
+  setZkFrozen() {
     assert(
       Txn.sender === Txn.applicationId.creator,
       "only creator can set zkFrozen",
     );
-    this.zkFrozen.value = frozen;
+    this.zkFrozen.value = true;
   }
 
   private assertZkIsNotFrozen() {

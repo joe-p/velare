@@ -42,15 +42,19 @@ Velare uses BLS12-381 PLONK proofs, which are based on elliptic-curve cryptograp
 
 While there are STARKs and some lattice-based proof systems that are PQ-secure, the proof sizes are very large compared to ECC ZK proofs (~50 KB). This means that today's PQ ZK proof systems are not practical for usage with most of today's blockchains.
 
-One option is to allow the contract to be updated so that the contract can be updated to use a PQ ZK proof system. The problem is that it is impossible to know how the contract must be updated since we don't yet have the primitives in the AVM. This means that if the Velare contract was mutable to allow upgrading the ZK proof system, the person sending the update could also act maliciously and update to a program that steal funds.
+##### Upgradable Contract
 
-Rather than making the Velare contract mutable, there is a global state value `zkFrozen` which is a boolean controlled by the creator via the `setZkFrozen` method. When this value is set to true, none of the methods that require ZK proofs (`deposit`, `spend`, and `withdraw`) can be called. The only method that can be called when `zkFrozen` is true is the `withdrawAll` method. This method does not use ZK proofs and instead does all the verification in the contract. This does mean that a user must expose their balance when `zkFrozen` is true, but this seems better than the alternative of losing all of their funds.
+Because the AVM does not support PQ ZK proofs, the Velare contract is upgradable. Since an update could theoretically drain user funds, there is a delay function that allows users to withdraw funds before the update can actually take place. The idea is that once PQ ZK is available on the AVM, the contract can be updated to use the new primitives without users having to explicitly move funds.
 
-Freezing is deliberately reversible. A one-way switch would mean that a premature or mistaken freeze permanently forces every user through the balance-revealing `withdrawAll` path, so the creator can unfreeze as well.
+##### Freezing ZK
 
-#### Trust Assumption
+Ideally PQ proof systems are available in the AVM before we believe a quantum attacker is feasible. This would allow an update to be initiated without the funds in the contract ever being at risk. It is, however, possible that q-day will come before the AVM is capable of supporting PQ proof systems. Rather than letting an attacker drain the contract in this scenario, there is a `zkFrozen` flag that can be controlled by the creator. When this flag is enabled, all the methods that rely on the soundness of PLONK SNARKs will be disabled. This means users cannot deposit or spend funds. The only action available to users will be withdrawing in the clear. This clear withdrawal method will reveal the amount that is in the UTXOs being withdrawn, but the circumvention of the SNARK means this method is no susceptible to a quantum attacker.
 
-`zkFrozen` is a unilateral power held by the creator, and it is worth being explicit that this cuts both ways. It exists to protect users, but the creator can also flip it at any time for any reason, at which point every user who wants to move funds must reveal their balance through `withdrawAll`. The creator can therefore force the de-anonymisation of the entire protocol at will. The creator cannot steal funds this way — `withdrawAll` only ever pays a caller their own committed UTXOs — but they can destroy confidentiality. Deploying Velare under a key that is not trusted for this decision (or not putting it behind a governance mechanism) is a real risk, not a theoretical one.
+##### Trust Assumptions
+
+The creator has the ability to initiate updates on a time delay. It is the user's responsibility to monitor pending updates and determine whether they want to keep funds in the contract or not before the update actually takes place. A malicious update could drain all funds in the contract.
+
+The creator also has the ability to enable `zkFrozen`. This one-way operation means that amounts and balances must be revealed to withdraw. The only way to revert this is through a contract update.
 
 ## Status
 
