@@ -183,6 +183,7 @@ export class Velare extends Contract {
   }
 
   updateApplication() {
+    assert(Global.latestTimestamp >= this.updateTime.value);
     assert(Txn.approvalProgram === this.nextApprovalProgram.value);
     assert(Txn.clearStateProgram === this.nextClearProgram.value);
   }
@@ -227,7 +228,7 @@ export class Velare extends Contract {
     assert(velareAddr === receiver, "UTXO receiver should be the depositor");
 
     const preMbr: uint64 = Global.currentApplicationAddress.minBalance;
-    this.utxo(utxoKey(receiver, asset, output)).value = clone(hpkeData);
+    this._outputUtxos([utxoKey(receiver, asset, output)], [hpkeData]);
     this.addressInfo(receiver).value = clone(expandedVelareAddr);
     const boxMbr: uint64 = Global.currentApplicationAddress.minBalance - preMbr;
 
@@ -241,14 +242,25 @@ export class Velare extends Contract {
     );
   }
 
-  private _deleteUtxos(utxoKeys: UtxoKey[]) {
+  private _spendUtxos(utxoKeys: UtxoKey[]) {
     const preMbr = Global.currentApplicationAddress.minBalance;
     for (const utxoKey of clone(utxoKeys)) {
+      assert(this.utxo(utxoKey).exists, "input UTXO should exist");
       this.utxo(utxoKey).delete();
     }
     const postMbr: uint64 = Global.currentApplicationAddress.minBalance;
 
     itxn.payment({ receiver: Txn.sender, amount: preMbr - postMbr }).submit();
+  }
+
+  private _outputUtxos(utxoKeys: UtxoKey[], hpkeData: HpkeData[]) {
+    for (let i: uint64 = 0; i < utxoKeys.length; i++) {
+      assert(
+        !this.utxo(utxoKeys[i]).exists,
+        "output UTXO should not already exist",
+      );
+      this.utxo(utxoKeys[i]).value = clone(hpkeData[i]);
+    }
   }
 
   spend(
@@ -285,19 +297,18 @@ export class Velare extends Contract {
     // The circuit only proves in0 + in1 == out0 + out1, so without this the
     // same UTXO could be supplied twice and its value counted twice
     assert(in0.asBigUint() !== in1.asBigUint(), "input UTXOs must be distinct");
+    assert(
+      out0.asBigUint() !== out1.asBigUint(),
+      "output UTXOs must be distinct",
+    );
 
     const inKey0 = utxoKey(spender, asset, in0);
     const inKey1 = utxoKey(spender, asset, in1);
     const outKey0 = utxoKey(receivers0, asset, out0);
     const outKey1 = utxoKey(receivers1, asset, out1);
 
-    assert(this.utxo(inKey0).exists);
-    assert(this.utxo(inKey1).exists);
-
-    this.utxo(outKey0).value = clone(hpkeData[0]);
-    this.utxo(outKey1).value = clone(hpkeData[1]);
-
-    this._deleteUtxos([inKey0, inKey1]);
+    this._outputUtxos([outKey0, outKey1], hpkeData);
+    this._spendUtxos([inKey0, inKey1]);
   }
 
   /**
@@ -381,14 +392,11 @@ export class Velare extends Contract {
     const inKey1 = utxoKey(spender, asset, in1);
     const changeKey = utxoKey(receivers1, asset, out1);
 
-    assert(this.utxo(inKey0).exists);
-    assert(this.utxo(inKey1).exists);
-
     // Re-shield the change output
-    this.utxo(changeKey).value = clone(changeHpkeData);
+    this._outputUtxos([changeKey], [changeHpkeData]);
 
     // Delete the spent inputs and refund their box MBR to the sender
-    this._deleteUtxos([inKey0, inKey1]);
+    this._spendUtxos([inKey0, inKey1]);
 
     // Pay out the un-shielded amount
     itxn.payment({ receiver: Txn.sender, amount: withdrawAmount }).submit();
