@@ -13,6 +13,7 @@ import {
   clone,
   itxn,
   ensureBudget,
+  Box,
 } from "@algorandfoundation/algorand-typescript";
 import { Uint256 } from "@algorandfoundation/algorand-typescript/arc4";
 import {
@@ -118,6 +119,14 @@ export class Velare extends Contract {
 
   signalVerifier = GlobalState<Account>({ key: "S" });
 
+  zkFrozen = GlobalState<boolean>({ key: "f" });
+
+  updateTimeDelay = GlobalState<uint64>({ key: "td" });
+
+  updateTime = GlobalState<uint64>({ key: "t" });
+
+  updateInitiated = GlobalState<boolean>({ key: "u" });
+
   /** Map of UTXO information to the HPKE data */
   utxo = BoxMap<UtxoKey, HpkeData>({ keyPrefix: "u" });
 
@@ -125,14 +134,70 @@ export class Velare extends Contract {
     keyPrefix: "a",
   });
 
+  nextApprovalProgram = Box<bytes>({ key: "ap" });
+
+  nextClearProgram = Box<bytes>({ key: "cp" });
+
   createApplication(
     depositVerifier: Account,
     spendVerifier: Account,
     signalVerifier: Account,
+    updateTimeDelay: uint64,
   ) {
     this.depositVerifier.value = depositVerifier;
     this.spendVerifier.value = spendVerifier;
     this.signalVerifier.value = signalVerifier;
+    this.zkFrozen.value = false;
+    this.updateTimeDelay.value = updateTimeDelay;
+    this.updateInitiated.value = false;
+  }
+
+  uploadNextProgram(approval: boolean, bytecode: bytes, offset: uint64) {
+    assert(
+      Txn.sender === Global.creatorAddress,
+      "next program can only be set by creator",
+    );
+    assert(!this.updateInitiated.value, "update must not already be initiated");
+    const requiredSize: uint64 = bytecode.length + offset;
+
+    const programBox = approval
+      ? this.nextApprovalProgram
+      : this.nextClearProgram;
+
+    if (!programBox.exists) {
+      programBox.create({ size: requiredSize });
+    } else if (programBox.length < requiredSize) {
+      programBox.resize(requiredSize);
+    }
+
+    programBox.replace(offset, bytecode);
+  }
+
+  initiateUpdate() {
+    assert(
+      Txn.sender === Global.creatorAddress,
+      "update can only be initiated by creator",
+    );
+    this.updateInitiated.value = true;
+    this.updateTime.value = Global.latestTimestamp + this.updateTimeDelay.value;
+  }
+
+  updateApplication() {
+    assert(Global.latestTimestamp >= this.updateTime.value);
+    assert(Txn.approvalProgram === this.nextApprovalProgram.value);
+    assert(Txn.clearStateProgram === this.nextClearProgram.value);
+  }
+
+  setZkFrozen() {
+    assert(
+      Txn.sender === Txn.applicationId.creator,
+      "only creator can set zkFrozen",
+    );
+    this.zkFrozen.value = true;
+  }
+
+  private assertZkIsNotFrozen() {
+    assert(this.zkFrozen.value === false, "ZK is frozen");
   }
 
   depositAlgo(
@@ -144,6 +209,8 @@ export class Velare extends Contract {
     hpkeSuite: bytes<6>,
     viewKey: bytes,
   ) {
+    this.assertZkIsNotFrozen();
+
     assert(
       verifierTxn.sender === this.depositVerifier.value,
       "invalid verifier txn",
@@ -161,24 +228,39 @@ export class Velare extends Contract {
     assert(velareAddr === receiver, "UTXO receiver should be the depositor");
 
     const preMbr: uint64 = Global.currentApplicationAddress.minBalance;
-    this.utxo(utxoKey(receiver, asset, output)).value = clone(hpkeData);
+    this._outputUtxos([utxoKey(receiver, asset, output)], [hpkeData]);
     this.addressInfo(receiver).value = clone(expandedVelareAddr);
     const boxMbr: uint64 = Global.currentApplicationAddress.minBalance - preMbr;
 
+    // `depositTxn.amount` covers both the shielded value and the box MBR the
+    // boxes above just locked up, so the mintable value is the payment minus
+    // that MBR. Adding it instead would let a depositor mint 2*boxMbr of value
+    // they never funded.
     assert(
-      amount.asBigUint() <= BigUint(depositTxn.amount + boxMbr),
-      "UTXO amount should be less than or equal to deposit amount + boxMbr",
+      amount.asBigUint() <= BigUint(depositTxn.amount - boxMbr),
+      "UTXO amount should be less than or equal to deposit amount - boxMbr",
     );
   }
 
-  private _deleteUtxos(utxoKeys: UtxoKey[]) {
+  private _spendUtxos(utxoKeys: UtxoKey[]) {
     const preMbr = Global.currentApplicationAddress.minBalance;
     for (const utxoKey of clone(utxoKeys)) {
+      assert(this.utxo(utxoKey).exists, "input UTXO should exist");
       this.utxo(utxoKey).delete();
     }
     const postMbr: uint64 = Global.currentApplicationAddress.minBalance;
 
     itxn.payment({ receiver: Txn.sender, amount: preMbr - postMbr }).submit();
+  }
+
+  private _outputUtxos(utxoKeys: UtxoKey[], hpkeData: HpkeData[]) {
+    for (let i: uint64 = 0; i < utxoKeys.length; i++) {
+      assert(
+        !this.utxo(utxoKeys[i]).exists,
+        "output UTXO should not already exist",
+      );
+      this.utxo(utxoKeys[i]).value = clone(hpkeData[i]);
+    }
   }
 
   spend(
@@ -191,6 +273,8 @@ export class Velare extends Contract {
     hpkeSuite: bytes<6>,
     viewKey: bytes,
   ) {
+    this.assertZkIsNotFrozen();
+
     ensureBudget(1400);
     assert(
       verifierTxn.sender === this.spendVerifier.value,
@@ -210,18 +294,21 @@ export class Velare extends Contract {
       "UTXO receiver should be the depositor",
     );
 
+    // The circuit only proves in0 + in1 == out0 + out1, so without this the
+    // same UTXO could be supplied twice and its value counted twice
+    assert(in0.asBigUint() !== in1.asBigUint(), "input UTXOs must be distinct");
+    assert(
+      out0.asBigUint() !== out1.asBigUint(),
+      "output UTXOs must be distinct",
+    );
+
     const inKey0 = utxoKey(spender, asset, in0);
     const inKey1 = utxoKey(spender, asset, in1);
     const outKey0 = utxoKey(receivers0, asset, out0);
     const outKey1 = utxoKey(receivers1, asset, out1);
 
-    assert(this.utxo(inKey0).exists);
-    assert(this.utxo(inKey1).exists);
-
-    this.utxo(outKey0).value = clone(hpkeData[0]);
-    this.utxo(outKey1).value = clone(hpkeData[1]);
-
-    this._deleteUtxos([inKey0, inKey1]);
+    this._outputUtxos([outKey0, outKey1], hpkeData);
+    this._spendUtxos([inKey0, inKey1]);
   }
 
   /**
@@ -249,6 +336,8 @@ export class Velare extends Contract {
     hpkeSuite: bytes<6>,
     viewKey: bytes,
   ) {
+    this.assertZkIsNotFrozen();
+
     // Extra budget covers the MiMC recomputation of the output commitment
     ensureBudget(4000);
     assert(
@@ -295,18 +384,19 @@ export class Velare extends Contract {
       "revealed amount and secret must open the withdrawal output commitment",
     );
 
+    // The circuit only proves in0 + in1 == out0 + out1, so without this the
+    // same UTXO could be supplied twice and its value counted twice
+    assert(in0.asBigUint() !== in1.asBigUint(), "input UTXOs must be distinct");
+
     const inKey0 = utxoKey(spender, asset, in0);
     const inKey1 = utxoKey(spender, asset, in1);
     const changeKey = utxoKey(receivers1, asset, out1);
 
-    assert(this.utxo(inKey0).exists);
-    assert(this.utxo(inKey1).exists);
-
     // Re-shield the change output
-    this.utxo(changeKey).value = clone(changeHpkeData);
+    this._outputUtxos([changeKey], [changeHpkeData]);
 
     // Delete the spent inputs and refund their box MBR to the sender
-    this._deleteUtxos([inKey0, inKey1]);
+    this._spendUtxos([inKey0, inKey1]);
 
     // Pay out the un-shielded amount
     itxn.payment({ receiver: Txn.sender, amount: withdrawAmount }).submit();
@@ -338,7 +428,13 @@ export class Velare extends Contract {
       viewKey,
     });
 
-    const keysToDelete: UtxoKey[] = [];
+    // Each UTXO box is deleted inside the loop rather than batched up
+    // afterwards. Deleting as we go is what makes a repeated withdrawal
+    // impossible: the second copy's existence check fails because the first
+    // copy already removed the box. Batching the deletions would let the same
+    // (amount, secret) pair pass `exists` twice and be counted twice in
+    // `total`, while the duplicate `delete()` silently no-ops.
+    const preMbr = Global.currentApplicationAddress.minBalance;
     let total: uint64 = 0;
 
     for (const withdrawal of clone(withdrawals)) {
@@ -361,14 +457,19 @@ export class Velare extends Contract {
         "revealed amount and secret must open an existing UTXO commitment",
       );
 
-      keysToDelete.push(key);
+      this.utxo(key).delete();
       total += withdrawal.amount;
     }
 
-    // Delete the spent UTXOs and refund their box MBR to the sender
-    this._deleteUtxos(keysToDelete);
+    const postMbr: uint64 = Global.currentApplicationAddress.minBalance;
 
-    // Pay out the total un-shielded amount
-    itxn.payment({ receiver: Txn.sender, amount: total }).submit();
+    // Pay out the total un-shielded amount plus the freed box MBR in a single
+    // inner transaction
+    itxn
+      .payment({
+        receiver: Txn.sender,
+        amount: total + (preMbr - postMbr),
+      })
+      .submit();
   }
 }

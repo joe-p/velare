@@ -15,6 +15,7 @@
     "@algorandfoundation/algorand-typescript": "1.2.0-beta.26",
     "@algorandfoundation/puya-ts": "1.2.0-beta.26",
     "@types/node": "^25.5.0",
+    "falcon-1024": "^0.2.0",
     "prettier": "^3.8.1",
     "tsx": "^4.21.0",
     "vitest": "^4.1.1"
@@ -24,9 +25,10 @@
   },
   "dependencies": {
     "@algorandfoundation/algokit-utils": "^9.0.0",
+    "@hpke/hybridkem-x-wing": "^0.7.0",
     "@noble/curves": "^2.2.0",
     "@noble/hashes": "^2.2.0",
-    "algosdk": "^3.5.2",
+    "algosdk": "github:algorand/js-algorand-sdk#feat/pq",
     "hpke-js": "^1.8.0",
     "snarkjs-algorand": "^0.12.0"
   }
