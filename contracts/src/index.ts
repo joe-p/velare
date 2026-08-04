@@ -500,17 +500,6 @@ export class VelareClient {
     suite?: CipherSuite;
   }) {
     const group = this.appClient.newGroup();
-
-    if (inUtxos.length !== 2) {
-      throw new Error("Only 2 input UTXOs are supported");
-    }
-    if (outAmounts.length !== 2) {
-      throw new Error("Only 2 output amounts are supported");
-    }
-    if (outReceivers.length !== 2) {
-      throw new Error("Only 2 output receivers are supported");
-    }
-
     const spender = computeVelareAddress(sender, suite, viewPublic);
 
     // Generate secrets and HPKE data for outputs
@@ -522,7 +511,7 @@ export class VelareClient {
 
     const costs = getKemCosts(suite);
 
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < outAmounts.length; i++) {
       const secret = crypto.getRandomValues(new Uint8Array(32));
       const secretBigint =
         BigInt("0x" + Buffer.from(secret).toString("hex")) %
@@ -631,6 +620,8 @@ export class VelareClient {
               inputs.receivers[0],
               inputs.receivers[1],
             ],
+            numInputs: inUtxos.length,
+            numOutputs: outAmounts.length,
           },
           extraFee: microAlgos(
             lsigsFee.microAlgos +

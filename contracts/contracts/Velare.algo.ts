@@ -263,6 +263,30 @@ export class Velare extends Contract {
     }
   }
 
+  /**
+   * Returns true if the `count` consecutive signals starting at `start` are
+   * pairwise distinct. The spend circuit only proves that the sum of the inputs
+   * equals the sum of the outputs, so without this the same UTXO could be
+   * supplied twice and its value counted twice.
+   */
+  private _assertNoDuplicates(
+    signalValues: Uint256[],
+    start: uint64,
+    count: uint64,
+  ): boolean {
+    for (let i: uint64 = 0; i < count; i++) {
+      for (let j: uint64 = i + 1; j < count; j++) {
+        if (
+          signalValues[start + i].asBigUint() ===
+          signalValues[start + j].asBigUint()
+        ) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
   spend(
     _signals: Uint256[],
     _proof: PlonkProof,
@@ -272,6 +296,8 @@ export class Velare extends Contract {
     hpkeData: HpkeData[],
     hpkeSuite: bytes<6>,
     viewKey: bytes,
+    numInputs: uint64,
+    numOutputs: uint64,
   ) {
     this.assertZkIsNotFrozen();
 
@@ -285,8 +311,11 @@ export class Velare extends Contract {
       "invalid signal verifier txn",
     );
 
-    const [in0, in1, out0, out1, spender, asset, receivers0, receivers1] =
-      signalValues;
+    // Public signal layout (matches SpendHashed / spend_hashed_2_2):
+    //   [inputs[numInputs], outputs[numOutputs], spender, asset,
+    //    receivers[numOutputs]]
+    const spender = signalValues[numInputs + numOutputs];
+    const asset = signalValues[numInputs + numOutputs + 1];
 
     assert(
       velareAddress({ spendAddress: Txn.sender, hpkeSuite, viewKey }) ===
@@ -294,21 +323,36 @@ export class Velare extends Contract {
       "UTXO receiver should be the depositor",
     );
 
-    // The circuit only proves in0 + in1 == out0 + out1, so without this the
+    // The circuit only proves sum(inputs) == sum(outputs), so without this the
     // same UTXO could be supplied twice and its value counted twice
-    assert(in0.asBigUint() !== in1.asBigUint(), "input UTXOs must be distinct");
     assert(
-      out0.asBigUint() !== out1.asBigUint(),
+      this._assertNoDuplicates(signalValues, 0, numInputs),
+      "input UTXOs must be distinct",
+    );
+    assert(
+      this._assertNoDuplicates(signalValues, numInputs, numOutputs),
       "output UTXOs must be distinct",
     );
 
-    const inKey0 = utxoKey(spender, asset, in0);
-    const inKey1 = utxoKey(spender, asset, in1);
-    const outKey0 = utxoKey(receivers0, asset, out0);
-    const outKey1 = utxoKey(receivers1, asset, out1);
+    const spentKeys: UtxoKey[] = [];
+    const outKeys: UtxoKey[] = [];
 
-    this._outputUtxos([outKey0, outKey1], hpkeData);
-    this._spendUtxos([inKey0, inKey1]);
+    for (let i: uint64 = 0; i < numInputs; i++) {
+      spentKeys.push(utxoKey(spender, asset, signalValues[i]));
+    }
+    this._spendUtxos(spentKeys);
+
+    for (let j: uint64 = 0; j < numOutputs; j++) {
+      outKeys.push(
+        utxoKey(
+          signalValues[numInputs + numOutputs + 2 + j],
+          asset,
+          signalValues[numInputs + j],
+        ),
+      );
+    }
+
+    this._outputUtxos(outKeys, hpkeData);
   }
 
   /**
