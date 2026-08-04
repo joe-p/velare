@@ -104,6 +104,46 @@ function utxoKey(addr: VelareAddress, asset: Uint256, utxo: Uint256): UtxoKey {
   };
 }
 
+export type ParsedSignals = {
+  inputs: Uint256[];
+  outputs: Uint256[];
+  spender: Uint256;
+  asset: Uint256;
+  receivers: Uint256[];
+};
+
+/**
+ * Parse a flat public signal array into a structured object, given the number
+ * of inputs and outputs. Expects the layout:
+ *   [inputs[numInputs], outputs[numOutputs], spender, asset,
+ *    receivers[numOutputs]]
+ */
+export function parseSignals(
+  signalValues: Uint256[],
+  numInputs: uint64,
+  numOutputs: uint64,
+): ParsedSignals {
+  const inputs: Uint256[] = [];
+  const outputs: Uint256[] = [];
+  const receivers: Uint256[] = [];
+
+  for (let i: uint64 = 0; i < numInputs; i++) {
+    inputs.push(signalValues[i]);
+  }
+  for (let j: uint64 = 0; j < numOutputs; j++) {
+    outputs.push(signalValues[numInputs + j]);
+  }
+
+  const spender = signalValues[numInputs + numOutputs];
+  const asset = signalValues[numInputs + numOutputs + 1];
+
+  for (let k: uint64 = 0; k < numOutputs; k++) {
+    receivers.push(signalValues[numInputs + numOutputs + 2 + k]);
+  }
+
+  return { inputs, outputs, spender, asset, receivers };
+}
+
 function velareAddress(expandedAddr: ExpandedVelareAddress) {
   const { spendAddress, hpkeSuite, viewKey } = expandedAddr;
   return new Uint256(
@@ -311,11 +351,11 @@ export class Velare extends Contract {
       "invalid signal verifier txn",
     );
 
-    // Public signal layout (matches SpendHashed / spend_hashed_2_2):
-    //   [inputs[numInputs], outputs[numOutputs], spender, asset,
-    //    receivers[numOutputs]]
-    const spender = signalValues[numInputs + numOutputs];
-    const asset = signalValues[numInputs + numOutputs + 1];
+    const { inputs, outputs, spender, asset, receivers } = parseSignals(
+      signalValues,
+      numInputs,
+      numOutputs,
+    );
 
     assert(
       velareAddress({ spendAddress: Txn.sender, hpkeSuite, viewKey }) ===
@@ -337,19 +377,13 @@ export class Velare extends Contract {
     const spentKeys: UtxoKey[] = [];
     const outKeys: UtxoKey[] = [];
 
-    for (let i: uint64 = 0; i < numInputs; i++) {
-      spentKeys.push(utxoKey(spender, asset, signalValues[i]));
+    for (const input of inputs) {
+      spentKeys.push(utxoKey(spender, asset, input));
     }
     this._spendUtxos(spentKeys);
 
     for (let j: uint64 = 0; j < numOutputs; j++) {
-      outKeys.push(
-        utxoKey(
-          signalValues[numInputs + numOutputs + 2 + j],
-          asset,
-          signalValues[numInputs + j],
-        ),
-      );
+      outKeys.push(utxoKey(receivers[j], asset, outputs[j]));
     }
 
     this._outputUtxos(outKeys, hpkeData);
@@ -393,8 +427,14 @@ export class Velare extends Contract {
       "invalid signal verifier txn",
     );
 
-    const [in0, in1, out0, out1, spender, asset, receivers0, receivers1] =
-      signalValues;
+    const { inputs, outputs, spender, asset, receivers } = parseSignals(
+      signalValues,
+      2,
+      2,
+    );
+    const [in0, in1] = inputs;
+    const [out0, out1] = outputs;
+    const [receivers0, receivers1] = receivers;
 
     assert(u64IsSignal(0, asset), "withdrawal only supports ALGO (asset 0)");
 
